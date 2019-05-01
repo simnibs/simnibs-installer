@@ -209,22 +209,19 @@ def run_command(command, log_level=logging.INFO):
         shell = True
     else:
         shell = False
-    try:
-        command_line_process = subprocess.Popen(
-            command, shell=shell,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        while command_line_process.returncode is None:
-            command_line_process.poll()
-            for line in command_line_process.stdout:
-                line = line.decode().rstrip('\n')
-                if line != '':
-                    logger.log(log_level, line)
+    command_line_process = subprocess.Popen(
+        command, shell=shell,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        stdin=subprocess.DEVNULL)
+    while command_line_process.returncode is None:
+        command_line_process.poll()
+        for line in command_line_process.stdout:
+            line = line.decode().rstrip('\n')
+            if line != '':
+                logger.log(log_level, line)
 
-        _, stderr = command_line_process.communicate()
-    except OSError:
-        raise OSError(f'Could not execute command: {command_str}')
-
+    _, stderr = command_line_process.communicate()
     stderr = stderr.decode()
     if stderr != '':
         logger.error('\n' + stderr)
