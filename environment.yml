@@ -3,7 +3,7 @@ channels:
   - defaults
 dependencies:
   - python==3.7
-  - pyqt==5.9
-  - requests==2.21
+  - pyqt==5.9.*
+  - requests==2.*
   - pip:
-    - pyinstaller==3.4
+    - pyinstaller==3.*

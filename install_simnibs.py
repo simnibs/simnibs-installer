@@ -14,8 +14,8 @@ import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 __version__ = '0.1'
-GH_RELEASES_URL = 'https://api.github.com/repos/guilhermebs/simnibs/releases'
-
+GH_RELEASES_URL = 'https://api.github.com/repos/guilhermebs/TestNibs/releases'
+HEADERS={}
 
 #logger = logging.getLogger(__name__)
 logger = logging.Logger('simnibs_installer', level=logging.INFO)
@@ -37,16 +37,17 @@ def log_excep(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = log_excep
 
-def _get_versions():
+def _get_versions(preselease=False):
     ''' Get avaliable SimNIBS version '''
     response = requests.get(GH_RELEASES_URL, headers=HEADERS)
     # Raise an exception if the API call fails.
     response.raise_for_status()
     data = response.json()
-    version_names = [
-        d['tag_name'][1:] for d in data if d['tag_name'][0] == 'v'
-    ]
-    return version_names
+    versions = {}
+    for i, d in enumerate(data):
+        if d['tag_name'][0] == 'v' and not (d['prerelease'] or preselease):
+            versions[d['tag_name'][1:]] = i
+    return versions
 
 
 def _get_current_version(target_dir):
@@ -63,32 +64,21 @@ def _get_current_version(target_dir):
 
 def _download_env(version, target_dir):
     ''' Looks for a given environment file os SimNIBS in the GitHub Releases
-    Parameters
-    ------------
-    version: str
-        Version number or 'latest'
     '''
     response = requests.get(GH_RELEASES_URL, headers=HEADERS)
     # Raise an exception if the API call fails.
     response.raise_for_status()
     data = response.json()
-    # Get the latest version
-    if version == 'latest':
-        release_data = data[0]
-    # Or an specific version
-    else:
-        release_data = [d for d in data if d['tag_name'][1:] == version]
-        # If the version is not found
-        if len(release_data) == 0:
-            ver_string = '\n'.join(_get_versions())
-            raise ValueError(
-                f'\nCould not find SimNIBS version: {version}\n'
-                f'Avaliable versions are:\n{ver_string}')
-        else:
-            release_data = release_data[0]
+    avaliable_versions = _get_versions()
+    try:
+        release_data = data[avaliable_versions[version]]
+    except KeyError:
+        ver_string = '\n'.join(avaliable_versions.keys())
+        raise ValueError(
+            f'\nCould not find SimNIBS version: {version}\n'
+            f'Avaliable versions are:\n{ver_string}')
 
     # Download the environment file
-    #TODO: change for an OS-specific format
     env_file = _env_file()
     dl_header = copy.deepcopy(HEADERS)
     dl_header['Accept'] = 'application/octet-stream'
@@ -104,19 +94,6 @@ def _download_env(version, target_dir):
             open(os.path.join(target_dir, env_file), 'wb').write(r.content)
             logger.info('Finished downloading the environment file')
 
-    #    ########### THE CODE BELOW IS PROVISIONAL #########
-    #    if re.search('simnibs-\S+linux\S+.whl', asset['name']):
-    #        logger.info(
-    #            f"Downloading the Wheel file: "
-    #            f"{asset['name']}")
-    #        r = requests.get(
-    #            f'{GH_RELEASES_URL}/assets/{asset["id"]}',
-    #            headers=dl_header, allow_redirects=True)
-    #        r.raise_for_status()
-    #        open(os.path.join(target_dir, asset['name']), 'wb').write(r.content)
-    #        logger.info('Finished downloading the wheel file')
-    #return f'file://{target_dir}'
-    ######### FINISHED PROVISIONAL CODE #########
     return release_data['html_url']
 
 def _env_file():
@@ -143,8 +120,11 @@ def _download_and_install_miniconda(miniconda_dir):
         miniconda_installer_path = 'miniconda_installer.exe'
         open(miniconda_installer_path, 'wb').write(r.content)
         logger.info('Finished downloading the Miniconda installer')
-        # Run the installer
-        raise NotImplementedError('Install')
+        logger.info('Installing Miniconda, this might take some time')
+        run_command(
+            [miniconda_installer_path, '/InstallationType=JustMe',
+            '/RegisterPython=0', '/AddToPath=0', '/S', f'/D={miniconda_dir}'])
+        os.remove(miniconda_installer_path)
     else:
         miniconda_installer_path = 'miniconda_installer.sh'
         open(miniconda_installer_path, 'wb').write(r.content)
@@ -171,17 +151,28 @@ def _install_env_and_simnibs(version_url, conda_executable, target_dir):
     activate_executable = os.path.join(os.path.dirname(conda_executable), 'activate')
     env_file = os.path.join(target_dir, _env_file())
     # We write a shell script and execute it due to the activate calls
-    # Unix version
-    with tempfile.NamedTemporaryFile(delete=False) as f:
-        f.write((
-            f'export PYTHONUNBUFFERED=1\n'
-            f'source {activate_executable} base\n'
-            f'conda env update -f {env_file}\n'
-            f'conda activate simnibs_env\n'
-            f'pip install --upgrade -f {version_url} simnibs').encode())
-        fn_tmp = f.name
-    run_command(['bash', '-e', fn_tmp])
-    os.remove(fn_tmp)
+    if sys.platform == 'win32':
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.cmd') as f:
+            f.write((
+                f'set PYTHONUNBUFFERED=1\n'
+                f'call {activate_executable} base\n'
+                f'conda env update -f {env_file}\n'
+                f'call conda activate simnibs_env\n'
+                f'pip install --upgrade -f {version_url} simnibs').encode())
+            fn_tmp = f.name
+        run_command(['cmd', '/Q', '/C', fn_tmp])
+        os.remove(fn_tmp)
+    else:
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write((
+                f'export PYTHONUNBUFFERED=1\n'
+                f'source {activate_executable} base\n'
+                f'conda env update -f {env_file}\n'
+                f'conda activate simnibs_env\n'
+                f'pip install --upgrade -f {version_url} simnibs').encode())
+            fn_tmp = f.name
+        run_command(['bash', '-e', fn_tmp])
+        os.remove(fn_tmp)
 
 
 def _run_postinstall(conda_executable, target_dir):
@@ -189,9 +180,16 @@ def _run_postinstall(conda_executable, target_dir):
     logger.info('Running SimNIBS postinstall script')
     activate_executable = os.path.join(os.path.dirname(conda_executable), 'activate')
     logger.debug(f'activate executable: {activate_executable}')
-    logger.debug(f'target dir: {target_dir}')
+    logger.debug(f'target dir: {target_dir}') 
     # We write a shell script and execute it due to the activate calls
-    # Unix version
+    if sys.platform == 'win32':
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.cmd') as f:
+            f.write((
+                f'call {activate_executable} simnibs_env\n'
+                f'simnibs_postinstall -d {target_dir}').encode())
+            fn_tmp = f.name
+        run_command(['cmd', '/Q', '/C', fn_tmp])
+        os.remove(fn_tmp)
     with tempfile.NamedTemporaryFile(delete=False) as f:
         f.write((
             f'source {activate_executable} simnibs_env\n'
@@ -204,10 +202,16 @@ def _run_postinstall(conda_executable, target_dir):
 def run_command(command, log_level=logging.INFO):
     """ Run a command and logs it
     """
-    logger.debug('Execute: ' + ' '.join(command))
+    command_str = ' '.join(command)
+    logger.log(log_level, f'Execute: {command_str}')
+    if sys.platform == 'win32':
+        command = command_str
+        shell = True
+    else:
+        shell = False
     try:
         command_line_process = subprocess.Popen(
-            command,
+            command, shell=shell,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
         while command_line_process.returncode is None:
@@ -219,7 +223,7 @@ def run_command(command, log_level=logging.INFO):
 
         _, stderr = command_line_process.communicate()
     except OSError:
-        raise OSError('Could not execute command:\n' + ' '.join(command))
+        raise OSError(f'Could not execute command: {command_str}')
 
     stderr = stderr.decode()
     if stderr != '':
@@ -228,7 +232,7 @@ def run_command(command, log_level=logging.INFO):
         logger.debug('Execution finished')
 
     else:
-        raise OSError('Error executing command: ' + ' '.join(command))
+        raise OSError(f'Error executing command: {command_str}')
 
 
 
@@ -256,13 +260,13 @@ def run_install(target_dir, simnibs_version):
     # Check the currently avaliable versisons
     avaliable_versions = _get_versions()
     if simnibs_version == 'latest':
-        requested_version = avaliable_versions[0]
+        requested_version = list(avaliable_versions.keys())[0]
     else:
         requested_version = simnibs_version
     try:
-        requested_idx = avaliable_versions.index(requested_version)
-    except ValueError:
-        ver_string = '\n'.join(avaliable_versions)
+        requested_idx = avaliable_versions[requested_version]
+    except KeyError:
+        ver_string = '\n'.join(avaliable_versions.keys())
         raise ValueError(
             f'Could not find requested SimNIBS version: {simnibs_version}'
             f'\nAvaliable versions are:\n{ver_string}')
@@ -273,8 +277,8 @@ def run_install(target_dir, simnibs_version):
         curr_version = _get_current_version(target_dir)
         if curr_version:
             try:
-                curr_idx = avaliable_versions.index(curr_version)
-            except ValueError:
+                curr_idx = avaliable_versions[curr_version]
+            except KeyError:
                 curr_idx = len(avaliable_versions) + 1
                 logger.error('Could not determine the current SimNIBS version')
             if requested_idx > curr_idx:
@@ -300,8 +304,12 @@ def run_install(target_dir, simnibs_version):
     logger.info(f'Installing SimNBIS to: {target_dir}')
     # Check is Miniconda is alteady present
     miniconda_dir = os.path.join(target_dir, 'miniconda3')
-    conda_executable = os.path.join(miniconda_dir, 'bin', 'conda')
-    if os.path.isfile(os.path.join(miniconda_dir, 'bin', 'conda')):
+    if sys.platform == 'win32':
+        conda_executable = os.path.join(miniconda_dir, 'Scripts', 'conda.exe')
+    else:
+        conda_executable = os.path.join(miniconda_dir, 'bin', 'conda')
+    print(conda_executable)
+    if os.path.isfile(conda_executable):
         logger.info('Miniconda installation detected, skipping install step')
     else:
         _download_and_install_miniconda(miniconda_dir)
@@ -361,19 +369,20 @@ class InstallGUI(QtWidgets.QWizard):
         layout.addWidget(QtWidgets.QLabel('Version to install:'), 1, 0)
         version_box = QtWidgets.QComboBox()
         version_box.activated.connect(self.set_simnibs_version)
-        avaliable_versions = _get_versions()
+        self.avaliable_versions = _get_versions()
+        latest_version = list(self.avaliable_versions.keys())[0]
         if self.simnibs_version == 'latest':
-           selected_version = 0
+           selected_version = latest_version
         else:
            try:
-                selected_version = avaliable_versions.index(self.simnibs_version)
-           except ValueError:
+                self.avaliable_versions[self.simnibs_version]
+           except KeyError:
                 logger.warn(
                     f'Could not find requested SimNIBS version: {self.simnibs_version}')
-                selected_version = 0
+                selected_version = latest_version
 
-        version_box.addItems(avaliable_versions)
-        version_box.setCurrentIndex(selected_version)
+        version_box.addItems(list(self.avaliable_versions.keys()))
+        version_box.setCurrentIndex(self.avaliable_versions[selected_version])
         layout.addWidget(version_box, 1, 1)
 
         license_label = QtWidgets.QLabel(
@@ -399,7 +408,7 @@ class InstallGUI(QtWidgets.QWizard):
             self.target_dir_line_edit.setText(self.target_dir)
 
     def set_simnibs_version(self, index):
-        self.simnibs_version = _get_versions()[index]
+        self.simnibs_version = list(self.avaliable_versions.keys())[index]
 
     def install_page(self):
         ''' Second page, with the install output '''
@@ -466,7 +475,7 @@ class InstallerThread(QtCore.QThread):
             run_install(self.target_dir, self.simnibs_version)
         except Exception as e:
             # The message box bellow is causing segmentation faults
-            QtWidgets.QMessageBox.critical(self.parent, 'Error', str(e))
+            #QtWidgets.QMessageBox.critical(self.parent, 'Error', str(e))
             logger.critical(str(e))
             raise e
         finally:

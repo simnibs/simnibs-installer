@@ -1,0 +1,1 @@
+pyinstaller --onefile --icon=gui_icon.ico install_simnibs.py
