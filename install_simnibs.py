@@ -58,7 +58,6 @@ def _get_current_version(target_dir):
     try:
         res.check_returncode()
     except subprocess.CalledProcessError():
-        logger.critical('Could not find SimNIBS version')
         return None
     return res.stdout.decode().rstrip('\n')
 
@@ -272,27 +271,24 @@ def run_install(target_dir, simnibs_version):
     if os.path.isfile(os.path.join(target_dir, 'bin', 'simnibs')):
         logger.info('SimNIBS installation detected! Updating it')
         curr_version = _get_current_version(target_dir)
-        if curr_version:
-            try:
-                curr_idx = avaliable_versions[curr_version]
-            except KeyError:
-                curr_idx = len(avaliable_versions) + 1
-                logger.error('Could not determine the current SimNIBS version')
+        try:
+            curr_idx = avaliable_versions[curr_version]
+        except KeyError:
+            curr_idx = len(avaliable_versions) + 1
+            logger.error('Could not determine the current SimNIBS version')
+            logger.info('Updating to the latest version')
+        else:
             if requested_idx > curr_idx:
                 raise ValueError(
                     "Can't downgrade SimNIBS!\n"
                     f"current version: {curr_version}\n"
                     f"requested version: {requested_version}\n")
                 return
-            if curr_idx == 0:
-                logger.info('SimNIBS is already up to date')
-                return
             elif curr_idx == requested_idx:
                 logger.info('SimNIBS is already in the requested version')
                 return
             else:
                 logger.info(f'Updating SimNIBS {curr_version} -> {requested_version}')
-                is_installed = True
     else:
         logger.debug('did not find any SimNIBS install in the target folder')
         logger.info(f'Installing SimNIBS {requested_version}')
@@ -379,7 +375,7 @@ class InstallGUI(QtWidgets.QWizard):
                 selected_version = latest_version
 
         version_box.addItems(list(self.avaliable_versions.keys()))
-        version_box.setCurrentIndex(self.avaliable_versions[selected_version])
+        version_box.setCurrentIndex(list(self.avaliable_versions.keys()).index(selected_version))
         layout.addWidget(version_box, 1, 1)
 
         license_label = QtWidgets.QLabel(
