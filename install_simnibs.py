@@ -45,8 +45,12 @@ def _get_versions(pre_release=False):
     versions = {}
     #breakpoint()
     for i, d in enumerate(data):
-        if d['tag_name'][0] == 'v' and (d['prerelease'] or pre_release):
-            versions[d['tag_name'][1:]] = i
+        if d['tag_name'][0] == 'v':
+            if not d['prerelease']:
+                versions[d['tag_name'][1:]] = i
+            if d['prerelease'] and pre_release:
+                versions[d['tag_name'][1:]] = i
+
     return versions
 
 
