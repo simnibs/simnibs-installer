@@ -54,10 +54,10 @@ def _get_versions(pre_release=False):
     return versions
 
 
-def _get_current_version(target_dir):
+def _get_current_version(prefix):
     ''' Gets the current SimNIBS version by looking at the simnibs executable'''
     res = subprocess.run(
-        [os.path.join(target_dir, 'bin', 'simnibs'), '--version'],
+        [os.path.join(prefix, 'bin', 'simnibs'), '--version'],
         capture_output=True)
     try:
         res.check_returncode()
@@ -65,7 +65,7 @@ def _get_current_version(target_dir):
         return None
     return res.stdout.decode().rstrip('\n')
 
-def _download_env(version, target_dir, pre_release):
+def _download_env(version, prefix, pre_release):
     ''' Looks for a given environment file os SimNIBS in the GitHub Releases
     '''
     response = requests.get(GH_RELEASES_URL)
@@ -93,7 +93,7 @@ def _download_env(version, target_dir, pre_release):
                 f'{GH_RELEASES_URL}/assets/{asset["id"]}',
                 headers=dl_header, allow_redirects=True)
             r.raise_for_status()
-            open(os.path.join(target_dir, env_file), 'wb').write(r.content)
+            open(os.path.join(prefix, env_file), 'wb').write(r.content)
             logger.info('Finished downloading the environment file')
 
     return release_data['html_url']
@@ -137,7 +137,7 @@ def _download_and_install_miniconda(miniconda_dir):
              '-b', '-f', '-p', miniconda_dir])
         os.remove(miniconda_installer_path)
 
-def _install_env_and_simnibs(version_url, conda_executable, target_dir):
+def _install_env_and_simnibs(version_url, conda_executable, prefix):
     ''' Install the environment and SimNIBS
 
     Parameters
@@ -151,7 +151,7 @@ def _install_env_and_simnibs(version_url, conda_executable, target_dir):
     logger.debug(f'Download URL: {version_url}')
     logger.debug(f'Conda executable: {conda_executable}')
     activate_executable = os.path.join(os.path.dirname(conda_executable), 'activate')
-    env_file = os.path.join(target_dir, _env_file())
+    env_file = os.path.join(prefix, _env_file())
     # We write a shell script and execute it due to the activate calls
     if sys.platform == 'win32':
         with tempfile.NamedTemporaryFile(delete=False, suffix='.cmd') as f:
@@ -179,25 +179,29 @@ def _install_env_and_simnibs(version_url, conda_executable, target_dir):
         os.remove(fn_tmp)
 
 
-def _run_postinstall(conda_executable, target_dir):
+def _run_postinstall(conda_executable, prefix, silent):
     ''' Run SimNIBS postinstall '''
     logger.info('Running SimNIBS postinstall script')
     activate_executable = os.path.join(os.path.dirname(conda_executable), 'activate')
     logger.debug(f'activate executable: {activate_executable}')
-    logger.debug(f'target dir: {target_dir}') 
+    logger.debug(f'target dir: {prefix}') 
     # We write a shell script and execute it due to the activate calls
+    if silent:
+        extra_args = '-s -f'
+    else:
+        extra_args = ''
     if sys.platform == 'win32':
         with tempfile.NamedTemporaryFile(delete=False, suffix='.cmd') as f:
             f.write((
                 f'call {activate_executable} simnibs_env\n'
-                f'simnibs_postinstall -d {target_dir}').encode())
+                f'simnibs_postinstall {extra_args} -d {prefix}').encode())
             fn_tmp = f.name
         run_command(['cmd', '/Q', '/C', fn_tmp])
         os.remove(fn_tmp)
     with tempfile.NamedTemporaryFile(delete=False) as f:
         f.write((
             f'source {activate_executable} simnibs_env\n'
-            f'simnibs_postinstall -d {target_dir}').encode())
+            f'simnibs_postinstall {extra_args} -d {prefix}').encode())
         fn_tmp = f.name
     run_command(['bash', '-e', fn_tmp])
     os.remove(fn_tmp)
@@ -237,21 +241,15 @@ def run_command(command, log_level=logging.INFO):
 
 
 
-def run_install(target_dir, simnibs_version, pre_release):
+def run_install(prefix, simnibs_version, pre_release, silent):
     ''' Main function for installation
-    
-    Parameters
-    --------------
-    target_dir: str
-        Directory where SimNIBS will be installed
-
     '''
     # Make the install directory
-    if not os.path.isdir(target_dir):
-        os.makedirs(target_dir)
+    if not os.path.isdir(prefix):
+        os.makedirs(prefix)
 
     # Add a logger
-    fh = logging.FileHandler(os.path.join(target_dir, 'simnibs_install_log.txt'), mode='w')
+    fh = logging.FileHandler(os.path.join(prefix, 'simnibs_install_log.txt'), mode='w')
     formatter = logging.Formatter(
         '[ %(name)s - %(asctime)s ]%(levelname)s: %(message)s')
     fh.setFormatter(formatter)
@@ -273,9 +271,9 @@ def run_install(target_dir, simnibs_version, pre_release):
             f'\nAvaliable versions are:\n{ver_string}')
 
     # Check the current installed version
-    if os.path.isfile(os.path.join(target_dir, 'bin', 'simnibs')):
+    if os.path.isfile(os.path.join(prefix, 'bin', 'simnibs')):
         logger.info('SimNIBS installation detected! Updating it')
-        curr_version = _get_current_version(target_dir)
+        curr_version = _get_current_version(prefix)
         try:
             curr_idx = avaliable_versions[curr_version]
         except KeyError:
@@ -299,9 +297,9 @@ def run_install(target_dir, simnibs_version, pre_release):
         logger.info(f'Installing SimNIBS {requested_version}')
 
 
-    logger.info(f'Installing SimNBIS to: {target_dir}')
+    logger.info(f'Installing SimNBIS to: {prefix}')
     # Check is Miniconda is alteady present
-    miniconda_dir = os.path.join(target_dir, 'miniconda3')
+    miniconda_dir = os.path.join(prefix, 'miniconda3')
     if sys.platform == 'win32':
         conda_executable = os.path.join(miniconda_dir, 'Scripts', 'conda.exe')
     else:
@@ -312,21 +310,21 @@ def run_install(target_dir, simnibs_version, pre_release):
     else:
         _download_and_install_miniconda(miniconda_dir)
     # Install SimNIBS
-    url = _download_env(requested_version, target_dir, pre_release)
-    _install_env_and_simnibs(url, conda_executable, target_dir)
-    _run_postinstall(conda_executable, target_dir)
-    shutil.copy(__file__, target_dir)
+    url = _download_env(requested_version, prefix, pre_release)
+    _install_env_and_simnibs(url, conda_executable, prefix)
+    _run_postinstall(conda_executable, prefix, silent)
+    shutil.copy(__file__, prefix)
     logger.info('SimNIBS successfuly installed')
 
 
 class InstallGUI(QtWidgets.QWizard):
     ''' Installation wizard '''
     def __init__(self,
-                 target_dir,
+                 prefix,
                  simnibs_version='latest',
                  pre_release=False):
         super().__init__()
-        self.target_dir = target_dir
+        self.prefix = prefix
         self.simnibs_version = simnibs_version
         self.pre_release = pre_release
 
@@ -355,11 +353,11 @@ class InstallGUI(QtWidgets.QWizard):
         layout = QtWidgets.QGridLayout()
 
         layout.addWidget(QtWidgets.QLabel('Install Directory:'), 0, 0)
-        self.target_dir_line_edit = QtWidgets.QLineEdit()
-        if self.target_dir is not None:
-            self.target_dir_line_edit.setText(self.target_dir)
-            self.target_dir_line_edit.textChanged.connect(self.set_target_dir)
-        layout.addWidget(self.target_dir_line_edit, 0, 1)
+        self.prefix_line_edit = QtWidgets.QLineEdit()
+        if self.prefix is not None:
+            self.prefix_line_edit.setText(self.prefix)
+            self.prefix_line_edit.textChanged.connect(self.set_prefix)
+        layout.addWidget(self.prefix_line_edit, 0, 1)
 
         select_file = QtWidgets.QPushButton('&Browse')
         select_file.clicked.connect(self.select_dir)
@@ -399,13 +397,13 @@ class InstallGUI(QtWidgets.QWizard):
         return options_page
 
 
-    def set_target_dir(self, new_value):
-        self.target_dir = new_value
+    def set_prefix(self, new_value):
+        self.prefix = new_value
 
     def select_dir(self):
-        self.target_dir = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory"))
-        if self.target_dir:
-            self.target_dir_line_edit.setText(self.target_dir)
+        self.prefix = str(QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory"))
+        if self.prefix:
+            self.prefix_line_edit.setText(self.prefix)
 
     def set_simnibs_version(self, index):
         self.simnibs_version = list(self.avaliable_versions.keys())[index]
@@ -428,7 +426,7 @@ class InstallGUI(QtWidgets.QWizard):
         def start_thread():
             ''' Starts the install procedure '''
             self.install_thread = InstallerThread(
-                self.target_dir, self.simnibs_version, self.pre_release)
+                self.prefix, self.simnibs_version, self.pre_release)
             self.install_thread.start()
             self.install_thread.out_signal.connect(text_box.append)
             self.install_thread.final_message.connect(set_final_message)
@@ -463,9 +461,9 @@ class InstallerThread(QtCore.QThread):
     out_signal = QtCore.pyqtSignal(str)
     final_message = QtCore.pyqtSignal(bool, str)
 
-    def __init__(self, target_dir, simnibs_version, pre_release):
+    def __init__(self, prefix, simnibs_version, pre_release):
         QtCore.QThread.__init__(self)
-        self.target_dir = target_dir
+        self.prefix = prefix
         self.simnibs_version = simnibs_version
         self.pre_release = pre_release
 
@@ -484,7 +482,7 @@ class InstallerThread(QtCore.QThread):
         w2b_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
         logger.addHandler(w2b_handler)
         try:
-            run_install(self.target_dir, self.simnibs_version, self.pre_release)
+            run_install(self.prefix, self.simnibs_version, self.pre_release, False)
         except Exception as e:
             # The message box bellow is causing segmentation faults
             #QtWidgets.QMessageBox.critical(self.parent, 'Error', str(e))
@@ -496,9 +494,9 @@ class InstallerThread(QtCore.QThread):
         finally:
             logger.removeHandler(w2b_handler)
 
-def start_gui(target_dir, simnibs_version, pre_release):
+def start_gui(prefix, simnibs_version, pre_release):
     app = QtWidgets.QApplication(sys.argv)
-    ex = InstallGUI(target_dir, simnibs_version, pre_release)
+    ex = InstallGUI(prefix, simnibs_version, pre_release)
     ex.show()
     response = app.exec_()
     sys.exit(response)
@@ -518,8 +516,10 @@ def main():
     parser = argparse.ArgumentParser(prog="install_simnibs",
                                      description="Updates SimNIBS to a given version")
     parser.add_argument('-s', '--silent', action='store_true',
-                        help="Run installation in silend mode (no GUI)")
-    parser.add_argument('-d', '--target_dir', required=False,
+                        help="Run installation in silent mode (no GUI). "
+                             "Will automatically accept licences and overwrite any "
+                             "existing SimNIBS installation")
+    parser.add_argument('-p', '--prefix', required=False,
                         help="Directory where to install SimNIBS",
                         default=_get_default_dir())
     parser.add_argument("-v", '--simnibs_version', required=False,
@@ -531,9 +531,9 @@ def main():
     parser.add_argument('--version', action='version', version=__version__)
     args = parser.parse_args(sys.argv[1:])
     if args.silent:
-        run_install(args.target_dir, args.simnibs_version, args.pre_release)
+        run_install(args.prefix, args.simnibs_version, args.pre_release, True)
     else:
-        start_gui(args.target_dir, args.simnibs_version, args.pre_release)
+        start_gui(args.prefix, args.simnibs_version, args.pre_release)
 
 # First scans the current directory for a SimNIBS install
 # Then proposes a new directory
