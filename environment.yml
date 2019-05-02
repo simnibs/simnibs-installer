@@ -5,5 +5,6 @@ dependencies:
   - python==3.7
   - pyqt==5.9.*
   - requests==2.*
+  - pip
   - pip:
     - pyinstaller==3.*

@@ -13,9 +13,8 @@ import requests
 
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-__version__ = '0.1'
-GH_RELEASES_URL = 'https://api.github.com/repos/guilhermebs/TestNibs/releases'
-HEADERS={}
+__version__ = '1.0'
+GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
 #logger = logging.getLogger(__name__)
 logger = logging.Logger('simnibs_installer', level=logging.INFO)
@@ -37,15 +36,16 @@ def log_excep(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = log_excep
 
-def _get_versions(preselease=False):
+def _get_versions(pre_release=False):
     ''' Get avaliable SimNIBS version '''
-    response = requests.get(GH_RELEASES_URL, headers=HEADERS)
+    response = requests.get(GH_RELEASES_URL)
     # Raise an exception if the API call fails.
     response.raise_for_status()
     data = response.json()
     versions = {}
+    #breakpoint()
     for i, d in enumerate(data):
-        if d['tag_name'][0] == 'v' and not (d['prerelease'] or preselease):
+        if d['tag_name'][0] == 'v' and (d['prerelease'] or pre_release):
             versions[d['tag_name'][1:]] = i
     return versions
 
@@ -61,14 +61,14 @@ def _get_current_version(target_dir):
         return None
     return res.stdout.decode().rstrip('\n')
 
-def _download_env(version, target_dir):
+def _download_env(version, target_dir, pre_release):
     ''' Looks for a given environment file os SimNIBS in the GitHub Releases
     '''
-    response = requests.get(GH_RELEASES_URL, headers=HEADERS)
+    response = requests.get(GH_RELEASES_URL)
     # Raise an exception if the API call fails.
     response.raise_for_status()
     data = response.json()
-    avaliable_versions = _get_versions()
+    avaliable_versions = _get_versions(pre_release)
     try:
         release_data = data[avaliable_versions[version]]
     except KeyError:
@@ -79,8 +79,7 @@ def _download_env(version, target_dir):
 
     # Download the environment file
     env_file = _env_file()
-    dl_header = copy.deepcopy(HEADERS)
-    dl_header['Accept'] = 'application/octet-stream'
+    dl_header = {'Accept': 'application/octet-stream'}
     for asset in release_data['assets']:
         if asset['name'] == env_file:
             logger.info(
@@ -155,6 +154,7 @@ def _install_env_and_simnibs(version_url, conda_executable, target_dir):
             f.write((
                 f'set PYTHONUNBUFFERED=1\n'
                 f'call {activate_executable} base\n'
+                f'conda update -y conda\n'
                 f'conda env update -f {env_file}\n'
                 f'call conda activate simnibs_env\n'
                 f'pip install --upgrade -f {version_url} simnibs').encode())
@@ -166,6 +166,7 @@ def _install_env_and_simnibs(version_url, conda_executable, target_dir):
             f.write((
                 f'export PYTHONUNBUFFERED=1\n'
                 f'source {activate_executable} base\n'
+                f'conda update -y conda\n'
                 f'conda env update -f {env_file}\n'
                 f'conda activate simnibs_env\n'
                 f'pip install --upgrade -f {version_url} simnibs').encode())
@@ -232,7 +233,7 @@ def run_command(command, log_level=logging.INFO):
 
 
 
-def run_install(target_dir, simnibs_version):
+def run_install(target_dir, simnibs_version, pre_release):
     ''' Main function for installation
     
     Parameters
@@ -254,7 +255,7 @@ def run_install(target_dir, simnibs_version):
     logger.addHandler(fh)
 
     # Check the currently avaliable versisons
-    avaliable_versions = _get_versions()
+    avaliable_versions = _get_versions(pre_release)
     if simnibs_version == 'latest':
         requested_version = list(avaliable_versions.keys())[0]
     else:
@@ -301,27 +302,29 @@ def run_install(target_dir, simnibs_version):
         conda_executable = os.path.join(miniconda_dir, 'Scripts', 'conda.exe')
     else:
         conda_executable = os.path.join(miniconda_dir, 'bin', 'conda')
-    print(conda_executable)
+
     if os.path.isfile(conda_executable):
         logger.info('Miniconda installation detected, skipping install step')
     else:
         _download_and_install_miniconda(miniconda_dir)
     # Install SimNIBS
-    url = _download_env(requested_version, target_dir)
+    url = _download_env(requested_version, target_dir, pre_release)
     _install_env_and_simnibs(url, conda_executable, target_dir)
     _run_postinstall(conda_executable, target_dir)
     shutil.copy(__file__, target_dir)
-    logger.info('SimNIBS sucessefully installed')
+    logger.info('SimNIBS successfuly installed')
 
 
 class InstallGUI(QtWidgets.QWizard):
     ''' Installation wizard '''
     def __init__(self,
                  target_dir,
-                 simnibs_version='latest'):
+                 simnibs_version='latest',
+                 pre_release=False):
         super().__init__()
         self.target_dir = target_dir
         self.simnibs_version = simnibs_version
+        self.pre_release = pre_release
 
         # Button layout without the back button
         buttons_layout = []
@@ -344,7 +347,7 @@ class InstallGUI(QtWidgets.QWizard):
         options_page.setTitle('Installation Options')
         options_page.setSubTitle(
             'The installer will donwload and install SimNIBS 3 and its requiremets.\n'
-            'SimNIBS requires about 3 GB of space')
+            'The final installation requires about 3 GB of space')
         layout = QtWidgets.QGridLayout()
 
         layout.addWidget(QtWidgets.QLabel('Install Directory:'), 0, 0)
@@ -362,7 +365,7 @@ class InstallGUI(QtWidgets.QWizard):
         layout.addWidget(QtWidgets.QLabel('Version to install:'), 1, 0)
         version_box = QtWidgets.QComboBox()
         version_box.activated.connect(self.set_simnibs_version)
-        self.avaliable_versions = _get_versions()
+        self.avaliable_versions = _get_versions(self.pre_release)
         latest_version = list(self.avaliable_versions.keys())[0]
         if self.simnibs_version == 'latest':
            selected_version = latest_version
@@ -379,7 +382,7 @@ class InstallGUI(QtWidgets.QWizard):
         layout.addWidget(version_box, 1, 1)
 
         license_label = QtWidgets.QLabel(
-            'I Agree to the <a href="http://www.simnibs.org/license"> SimNIBS </a>'
+            'I Agree to the <a href="https://raw.githubusercontent.com/simnibs/simnibs/master/LICENSE.txt"> SimNIBS </a>'
             ' and <a href="https://docs.continuum.io/anaconda/eula"> Miniconda </a> licenses')
         license_label.setOpenExternalLinks(True)
         layout.addWidget(license_label, 2, 1)
@@ -421,10 +424,19 @@ class InstallGUI(QtWidgets.QWizard):
         def start_thread():
             ''' Starts the install procedure '''
             self.install_thread = InstallerThread(
-                self, self.target_dir, self.simnibs_version)
+                self.target_dir, self.simnibs_version, self.pre_release)
             self.install_thread.start()
             self.install_thread.out_signal.connect(text_box.append)
+            self.install_thread.final_message.connect(set_final_message)
             self.install_thread.finished.connect(install_page.completeChanged.emit)
+
+        def set_final_message(successful, msg):
+            if successful:
+                QtWidgets.QMessageBox.information(
+                    self, 'SimNIBS Installation', msg)
+            else:
+                QtWidgets.QMessageBox.critical(
+                    self, 'SimNIBS Installation Error', msg)
 
         def install_finished():
             ''' Changes the status '''
@@ -435,20 +447,23 @@ class InstallGUI(QtWidgets.QWizard):
 
         install_page.initializePage = start_thread
         install_page.isComplete = install_finished
+        
 
         return install_page
 
 
 @QtCore.pyqtSlot(str)
+@QtCore.pyqtSlot(bool, str)
 class InstallerThread(QtCore.QThread):
     ''' Thread to install SimNIBS '''
     out_signal = QtCore.pyqtSignal(str)
+    final_message = QtCore.pyqtSignal(bool, str)
 
-    def __init__(self, parent, target_dir, simnibs_version):
+    def __init__(self, target_dir, simnibs_version, pre_release):
         QtCore.QThread.__init__(self)
-        self.parent = parent
         self.target_dir = target_dir
         self.simnibs_version = simnibs_version
+        self.pre_release = pre_release
 
     def run(self):
         ''' Write log to box '''
@@ -465,18 +480,21 @@ class InstallerThread(QtCore.QThread):
         w2b_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
         logger.addHandler(w2b_handler)
         try:
-            run_install(self.target_dir, self.simnibs_version)
+            run_install(self.target_dir, self.simnibs_version, self.pre_release)
         except Exception as e:
             # The message box bellow is causing segmentation faults
             #QtWidgets.QMessageBox.critical(self.parent, 'Error', str(e))
             logger.critical(str(e))
+            self.final_message.emit(False, str(e))
             raise e
+        else:
+            self.final_message.emit(True, 'Installation Successeful!')
         finally:
             logger.removeHandler(w2b_handler)
 
-def start_gui(target_dir, simnibs_version):
+def start_gui(target_dir, simnibs_version, pre_release):
     app = QtWidgets.QApplication(sys.argv)
-    ex = InstallGUI(target_dir, simnibs_version)
+    ex = InstallGUI(target_dir, simnibs_version, pre_release)
     ex.show()
     response = app.exec_()
     sys.exit(response)
@@ -504,12 +522,14 @@ def main():
                         default="latest",
                         help="Version of SimNIBS to install."
                              " Default: latest version")
+    parser.add_argument("--pre-release", action='store_true',
+                        help= "Also list pre-release versions")
     parser.add_argument('--version', action='version', version=__version__)
     args = parser.parse_args(sys.argv[1:])
     if args.silent:
-        run_install(args.target_dir, args.simnibs_version)
+        run_install(args.target_dir, args.simnibs_version, args.pre_release)
     else:
-        start_gui(args.target_dir, args.simnibs_version)
+        start_gui(args.target_dir, args.simnibs_version, args.pre_release)
 
 # First scans the current directory for a SimNIBS install
 # Then proposes a new directory
