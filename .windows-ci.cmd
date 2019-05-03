@@ -3,7 +3,7 @@ start /wait bitsadmin.exe /transfer JOB https://repo.anaconda.com/miniconda/Mini
 call Miniconda3.exe /InstallationType=JustMe /RegisterPython=0 /S /D=%cd%\MINICONDA
 call %cd%\MINICONDA\Scripts\activate
 conda env create -f environment.yml
-conda activate simnibs_installer
+call conda activate simnibs_installer
 pip install pyqt5
 python install_simnibs.py -s --pre-release
 call compile.cmd
