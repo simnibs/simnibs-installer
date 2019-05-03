@@ -18,7 +18,11 @@ GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
 #logger = logging.getLogger(__name__)
 logger = logging.Logger('simnibs_installer', level=logging.INFO)
-
+sh = logging.StreamHandler()
+formatter = logging.Formatter('[ %(name)s ]%(levelname)s: %(message)s')
+sh.setFormatter(formatter)
+logger.addHandler(sh)
+logger.setLevel(logging.INFO)
 
 def log_excep(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
@@ -142,13 +146,6 @@ def _download_and_install_miniconda(miniconda_dir):
 
 def _install_env_and_simnibs(version_url, conda_executable, prefix):
     ''' Install the environment and SimNIBS
-
-    Parameters
-    -----------
-    version_url: str
-        Url to the address with the .whl files
-    conda_executable: str
-        Path to the conda executable
     '''
     logger.info('Installing the environment and SimNIBS')
     logger.debug(f'Download URL: {version_url}')
@@ -159,12 +156,13 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
     if sys.platform == 'win32':
         with tempfile.NamedTemporaryFile(delete=False, suffix='.cmd') as f:
             f.write((
+                f'@echo off'
                 f'set PYTHONUNBUFFERED=1\n'
                 f'call {activate_executable} base\n'
                 f'call conda update -y conda\n'
                 f'call conda env update -f {env_file}\n'
                 f'call conda activate simnibs_env\n'
-                f'call pip install --upgrade -f {version_url} simnibs').encode())
+                f'pip install --upgrade -f {version_url} simnibs').encode())
             fn_tmp = f.name
         run_command(['cmd', '/Q', '/C', fn_tmp])
         #os.remove(fn_tmp)
@@ -537,11 +535,6 @@ def main():
     if args.silent:
         run_install(args.prefix, args.simnibs_version, args.pre_release, True)
     else:
-        sh = logging.StreamHandler()
-        formatter = logging.Formatter('[ %(name)s ]%(levelname)s: %(message)s')
-        sh.setFormatter(formatter)
-        logger.addHandler(sh)
-        logger.setLevel(logging.INFO)
         start_gui(args.prefix, args.simnibs_version, args.pre_release)
 
 # First scans the current directory for a SimNIBS install
