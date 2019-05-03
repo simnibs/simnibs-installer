@@ -18,11 +18,7 @@ GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
 #logger = logging.getLogger(__name__)
 logger = logging.Logger('simnibs_installer', level=logging.INFO)
-sh = logging.StreamHandler()
-formatter = logging.Formatter('[ %(name)s ]%(levelname)s: %(message)s')
-sh.setFormatter(formatter)
-logger.addHandler(sh)
-logger.setLevel(logging.INFO)
+
 
 def log_excep(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
@@ -53,17 +49,24 @@ def _get_versions(pre_release=False):
 
     return versions
 
+def _simnibs_exe(prefix):
+    if sys.platform == 'win32':
+        return os.path.join(prefix, 'bin', 'simnibs.cmd')
+    else:
+        return os.path.join(prefix, 'bin', 'simnibs')
 
 def _get_current_version(prefix):
     ''' Gets the current SimNIBS version by looking at the simnibs executable'''
     res = subprocess.run(
-        [os.path.join(prefix, 'bin', 'simnibs'), '--version'],
-        capture_output=True)
+        f'{_simnibs_exe(prefix)} --version',
+        capture_output=True,
+        shell=True,
+        stdin=subprocess.DEVNULL)
     try:
         res.check_returncode()
     except subprocess.CalledProcessError():
         return None
-    return res.stdout.decode().rstrip('\n')
+    return res.stdout.decode().rstrip('\n').rstrip('\r')
 
 def _download_env(version, prefix, pre_release):
     ''' Looks for a given environment file os SimNIBS in the GitHub Releases
@@ -158,13 +161,13 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
             f.write((
                 f'set PYTHONUNBUFFERED=1\n'
                 f'call {activate_executable} base\n'
-                f'conda update -y conda\n'
-                f'conda env update -f {env_file}\n'
+                f'call conda update -y conda\n'
+                f'call conda env update -f {env_file}\n'
                 f'call conda activate simnibs_env\n'
-                f'pip install --upgrade -f {version_url} simnibs').encode())
+                f'call pip install --upgrade -f {version_url} simnibs').encode())
             fn_tmp = f.name
         run_command(['cmd', '/Q', '/C', fn_tmp])
-        os.remove(fn_tmp)
+        #os.remove(fn_tmp)
     else:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write((
@@ -198,13 +201,14 @@ def _run_postinstall(conda_executable, prefix, silent):
             fn_tmp = f.name
         run_command(['cmd', '/Q', '/C', fn_tmp])
         os.remove(fn_tmp)
-    with tempfile.NamedTemporaryFile(delete=False) as f:
-        f.write((
-            f'source {activate_executable} simnibs_env\n'
-            f'simnibs_postinstall {extra_args} -d {prefix}').encode())
-        fn_tmp = f.name
-    run_command(['bash', '-e', fn_tmp])
-    os.remove(fn_tmp)
+    else:
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write((
+                f'source {activate_executable} simnibs_env\n'
+                f'simnibs_postinstall {extra_args} -d {prefix}').encode())
+            fn_tmp = f.name
+        run_command(['bash', '-e', fn_tmp])
+        os.remove(fn_tmp)
 
 
 def run_command(command, log_level=logging.INFO):
@@ -271,14 +275,14 @@ def run_install(prefix, simnibs_version, pre_release, silent):
             f'\nAvaliable versions are:\n{ver_string}')
 
     # Check the current installed version
-    if os.path.isfile(os.path.join(prefix, 'bin', 'simnibs')):
+    if os.path.isfile(_simnibs_exe(prefix)):
         logger.info('SimNIBS installation detected! Updating it')
         curr_version = _get_current_version(prefix)
         try:
             curr_idx = avaliable_versions[curr_version]
         except KeyError:
             curr_idx = len(avaliable_versions) + 1
-            logger.error('Could not determine the current SimNIBS version')
+            logger.info('Could not determine the current SimNIBS version')
             logger.info('Updating to the latest version')
         else:
             if requested_idx > curr_idx:
@@ -533,6 +537,11 @@ def main():
     if args.silent:
         run_install(args.prefix, args.simnibs_version, args.pre_release, True)
     else:
+        sh = logging.StreamHandler()
+        formatter = logging.Formatter('[ %(name)s ]%(levelname)s: %(message)s')
+        sh.setFormatter(formatter)
+        logger.addHandler(sh)
+        logger.setLevel(logging.INFO)
         start_gui(args.prefix, args.simnibs_version, args.pre_release)
 
 # First scans the current directory for a SimNIBS install
