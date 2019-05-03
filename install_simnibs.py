@@ -9,7 +9,7 @@ import logging
 import copy
 import re
 import requests
-# TEMPORARY
+import zipfile
 
 from PyQt5 import QtCore, QtWidgets, QtGui
 
@@ -72,7 +72,7 @@ def _get_current_version(prefix):
         return None
     return res.stdout.decode().rstrip('\n').rstrip('\r')
 
-def _download_env(version, prefix, pre_release):
+def _download_env_docs(version, prefix, pre_release):
     ''' Looks for a given environment file os SimNIBS in the GitHub Releases
     '''
     response = requests.get(GH_RELEASES_URL)
@@ -102,7 +102,21 @@ def _download_env(version, prefix, pre_release):
             r.raise_for_status()
             open(os.path.join(prefix, env_file), 'wb').write(r.content)
             logger.info('Finished downloading the environment file')
-
+        if asset['name'] == 'documentation.zip':
+            logger.info("Downloading the documentation")
+            r = requests.get(
+                f'{GH_RELEASES_URL}/assets/{asset["id"]}',
+                headers=dl_header, allow_redirects=True)
+            r.raise_for_status()
+            fn_zip = os.path.join(prefix, 'documentation.zip')
+            open(fn_zip, 'wb').write(r.content)
+            logger.info('Finished downloading the documentation')
+            logger.info('Extracting the documentation')
+            if os.path.isdir(os.path.join(prefix, 'documentation')):
+                shutil.rmtree(os.path.join(prefix, 'documentation'))
+            with zipfile.ZipFile(fn_zip) as z:
+                z.extractall(os.path.join(prefix, 'documentation'))
+            os.remove(fn_zip)
     return release_data['html_url']
 
 def _env_file():
@@ -312,7 +326,7 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     else:
         _download_and_install_miniconda(miniconda_dir)
     # Install SimNIBS
-    url = _download_env(requested_version, prefix, pre_release)
+    url = _download_env_docs(requested_version, prefix, pre_release)
     _install_env_and_simnibs(url, conda_executable, prefix)
     _run_postinstall(conda_executable, prefix, silent)
     shutil.copy(__file__, prefix)
