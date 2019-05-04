@@ -147,6 +147,7 @@ def _download_and_install_miniconda(miniconda_dir):
         run_command(
             [miniconda_installer_path, '/InstallationType=JustMe',
             '/RegisterPython=0', '/AddToPath=0', '/S', f'/D={miniconda_dir}'])
+        logger.info('Finished installing Minicoda')
         os.remove(miniconda_installer_path)
     else:
         miniconda_installer_path = 'miniconda_installer.sh'
@@ -156,6 +157,7 @@ def _download_and_install_miniconda(miniconda_dir):
         run_command(
             ['bash', miniconda_installer_path,
              '-b', '-f', '-p', miniconda_dir])
+        logger.info('Finished installing Minicoda')
         os.remove(miniconda_installer_path)
 
 def _install_env_and_simnibs(version_url, conda_executable, prefix):
@@ -168,22 +170,18 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
     env_file = os.path.join(prefix, _env_file())
     # We write a shell script and execute it due to the activate calls
     if sys.platform == 'win32':
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.cmd') as f:
-            f.write((
-                f'@echo off'
-                f'set PYTHONUNBUFFERED=1\n'
-                f'call {activate_executable} base\n'
-                f'call conda update -y conda\n'
-                f'call conda env update -f {env_file}\n'
-                f'call conda activate simnibs_env\n'
-                f'pip install --upgrade -f {version_url} simnibs').encode())
-            fn_tmp = f.name
-        run_command(['cmd', '/Q', '/C', fn_tmp])
-        #os.remove(fn_tmp)
+        run_command([
+            f'call {activate_executable} && '
+            f'conda update -y conda && '
+            f'conda env update -f {env_file}'
+        ])
+        run_command([
+            f'call {activate_executable} simnibs_env && '
+            f'pip install --upgrade -f {version_url} simnibs'
+        ])
     else:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write((
-                f'export PYTHONUNBUFFERED=1\n'
                 f'source {activate_executable} base\n'
                 f'conda update -y conda\n'
                 f'conda env update -f {env_file}\n'
@@ -206,13 +204,10 @@ def _run_postinstall(conda_executable, prefix, silent):
     else:
         extra_args = ''
     if sys.platform == 'win32':
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.cmd') as f:
-            f.write((
-                f'call {activate_executable} simnibs_env\n'
-                f'simnibs_postinstall {extra_args} -d {prefix}').encode())
-            fn_tmp = f.name
-        run_command(['cmd', '/Q', '/C', fn_tmp])
-        os.remove(fn_tmp)
+        run_command([
+            f'call {activate_executable} simnibs_env && '
+            f'simnibs_postinstall {extra_args} -d {prefix}'
+        ])
     else:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write((
