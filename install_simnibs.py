@@ -55,9 +55,9 @@ def _get_versions(pre_release=False):
 
 def _simnibs_exe(prefix):
     if sys.platform == 'win32':
-        return os.path.join(prefix, 'bin', 'simnibs.cmd')
+        return os.path.abspath(os.path.join(prefix, 'bin', 'simnibs.cmd'))
     else:
-        return os.path.join(prefix, 'bin', 'simnibs')
+        return os.path.abspath(os.path.join(prefix, 'bin', 'simnibs'))
 
 def _get_current_version(prefix):
     ''' Gets the current SimNIBS version by looking at the simnibs executable'''
@@ -145,8 +145,8 @@ def _download_and_install_miniconda(miniconda_dir):
         logger.info('Finished downloading the Miniconda installer')
         logger.info('Installing Miniconda, this might take some time')
         run_command(
-            [miniconda_installer_path, '/InstallationType=JustMe',
-            '/RegisterPython=0', '/AddToPath=0', '/S', f'/D={miniconda_dir}'])
+            f'{miniconda_installer_path} /InstallationType=JustMe '
+            f'/RegisterPython=0 /AddToPath=0 /S /D={miniconda_dir}')
         logger.info('Finished installing Minicoda')
         os.remove(miniconda_installer_path)
     else:
@@ -155,8 +155,8 @@ def _download_and_install_miniconda(miniconda_dir):
         logger.info('Finished downloading the Miniconda installer')
         # Run the instaler
         run_command(
-            ['bash', miniconda_installer_path,
-             '-b', '-f', '-p', miniconda_dir])
+            f'bash {miniconda_installer_path} '
+            f'-b -f -p {miniconda_dir}')
         logger.info('Finished installing Minicoda')
         os.remove(miniconda_installer_path)
 
@@ -170,26 +170,28 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
     env_file = os.path.join(prefix, _env_file())
     # We write a shell script and execute it due to the activate calls
     if sys.platform == 'win32':
-        run_command([
+        run_command(
             f'call {activate_executable} && '
             f'conda update -y conda && '
             f'conda env update -f {env_file}'
-        ])
-        run_command([
+        )
+        run_command(
             f'call {activate_executable} simnibs_env && '
             f'pip install --upgrade -f {version_url} simnibs'
-        ])
+        )
     else:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write((
-                f'source {activate_executable} base\n'
-                f'conda update -y conda\n'
-                f'conda env update -f {env_file}\n'
-                f'conda activate simnibs_env\n'
-                f'pip install --upgrade -f {version_url} simnibs').encode())
-            fn_tmp = f.name
-        run_command(['bash', '-e', fn_tmp])
-        os.remove(fn_tmp)
+        # I use "." instead of source as it is executed in an sh shell
+        run_command(
+            f'. {activate_executable} && '
+            f'conda update -y conda && '
+            f'conda env update -f {env_file}'
+        )
+        pip_executable = os.path.join(
+            os.path.dirname(conda_executable),
+            '..', 'envs', 'simnibs_env', 'bin', 'pip')
+        run_command(
+            f'{pip_executable} install --upgrade -f {version_url} simnibs'
+        )
 
 
 def _run_postinstall(conda_executable, prefix, silent):
@@ -204,35 +206,47 @@ def _run_postinstall(conda_executable, prefix, silent):
     else:
         extra_args = ''
     if sys.platform == 'win32':
-        run_command([
+        run_command(
             f'call {activate_executable} simnibs_env && '
             f'simnibs_postinstall {extra_args} -d {prefix}'
-        ])
+        )
     else:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write((
-                f'source {activate_executable} simnibs_env\n'
-                f'simnibs_postinstall {extra_args} -d {prefix}').encode())
-            fn_tmp = f.name
-        run_command(['bash', '-e', fn_tmp])
-        os.remove(fn_tmp)
+        postinstall_executable = os.path.join(
+            os.path.dirname(conda_executable),
+            '..', 'envs', 'simnibs_env', 'bin', 'simnibs_postinstall')
+        run_command(
+            f'{postinstall_executable} {extra_args} -d {prefix}'
+        )
+        # Here Iøm having problems in the compiled binary, probably due to the load order
+        # https://pyinstaller.readthedocs.io/en/v3.3.1/runtime-information.html#ld-library-path-libpath-considerations
 
 
 def run_command(command, log_level=logging.INFO):
     """ Run a command and logs it
     """
-    command_str = ' '.join(command)
-    logger.log(log_level, f'Execute: {command_str}')
-    if sys.platform == 'win32':
-        command = command_str
-        shell = True
+    logger.log(log_level, f'Execute: {command}')
+
+    # Restore the original environment
+    # from
+    # https://pyinstaller.readthedocs.io/en/v3.3.1/runtime-information.html#ld-library-path-libpath-considerations
+    if getattr( sys, 'frozen', False ) and sys.platform != 'win32':
+        env = dict(os.environ)  # make a copy of the environment
+        lp_key = 'LD_LIBRARY_PATH'  # for Linux and *BSD.
+        lp_orig = env.get(lp_key + '_ORIG')  # pyinstaller >= 20160820 has this
+        if lp_orig is not None:
+            env[lp_key] = lp_orig  # restore the original, unmodified value
+        else:
+            env.pop(lp_key, None)  # last resort: remove the env var
     else:
-        shell = False
+        env = None
+
     command_line_process = subprocess.Popen(
-        command, shell=shell,
+        command, shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        stdin=subprocess.DEVNULL)
+        stdin=subprocess.DEVNULL,
+        env=env
+    )
     while command_line_process.returncode is None:
         command_line_process.poll()
         for line in command_line_process.stdout:
@@ -248,7 +262,7 @@ def run_command(command, log_level=logging.INFO):
         logger.debug('Execution finished')
 
     else:
-        raise OSError(f'Error executing command: {command_str}')
+        raise OSError(f'Error executing command: {command}')
 
 
 
@@ -324,7 +338,16 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     url = _download_env_docs(requested_version, prefix, pre_release)
     _install_env_and_simnibs(url, conda_executable, prefix)
     _run_postinstall(conda_executable, prefix, silent)
-    shutil.copy(__file__, prefix)
+    # Move the installer as 'update_simnibs'
+    if getattr( sys, 'frozen', False ):
+        shutil.copy(
+            sys.executable,
+            os.path.join(prefix, 'bin', 'update_simnibs'))
+    else:
+        shutil.copy(
+            __file__,
+            os.path.join(prefix, 'bin', 'update_simnibs.py'))
+
     logger.info('SimNIBS successfuly installed')
 
 
@@ -514,9 +537,8 @@ def start_gui(prefix, simnibs_version, pre_release):
 
 
 def _get_default_dir():
-    if os.path.isfile(os.path.join('bin', 'simnibs')):
-        return os.path.abspath('.')
-
+    if os.path.isfile(_simnibs_exe('..')):
+        return os.path.abspath('..')
     if sys.platform == 'win32':
         return os.path.join(os.environ['LOCALAPPDATA'], 'SimNIBS')
     elif sys.platform == 'linux':
