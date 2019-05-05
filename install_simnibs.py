@@ -13,6 +13,13 @@ import zipfile
 
 from PyQt5 import QtCore, QtWidgets, QtGui
 
+# THIS LINES ARE KEY TO MAKE THE PYINSTALLER-FROZEN APP WORK ON WINDOWS
+# WE NEED TO DISABLE THE SETDLLDIRECTORYA CALL OR IT WILL AFECT ALL CHILD PROCESSES
+# https://github.com/pyinstaller/pyinstaller/issues/3795
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.kernel32.SetDllDirectoryA(None)
+
 __version__ = '1.0'
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
@@ -168,7 +175,6 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
     logger.debug(f'Conda executable: {conda_executable}')
     activate_executable = os.path.join(os.path.dirname(conda_executable), 'activate')
     env_file = os.path.join(prefix, _env_file())
-    # We write a shell script and execute it due to the activate calls
     if sys.platform == 'win32':
         run_command(
             f'call {activate_executable} && '
@@ -217,8 +223,6 @@ def _run_postinstall(conda_executable, prefix, silent):
         run_command(
             f'{postinstall_executable} {extra_args} -d {prefix}'
         )
-        # Here Iøm having problems in the compiled binary, probably due to the load order
-        # https://pyinstaller.readthedocs.io/en/v3.3.1/runtime-information.html#ld-library-path-libpath-considerations
 
 
 def run_command(command, log_level=logging.INFO):
@@ -227,19 +231,17 @@ def run_command(command, log_level=logging.INFO):
     logger.log(log_level, f'Execute: {command}')
 
     # Restore the original environment
-    # from
-    # https://pyinstaller.readthedocs.io/en/v3.3.1/runtime-information.html#ld-library-path-libpath-considerations
-    if getattr( sys, 'frozen', False ) and sys.platform != 'win32':
-        env = dict(os.environ)  # make a copy of the environment
-        lp_key = 'LD_LIBRARY_PATH'  # for Linux and *BSD.
-        lp_orig = env.get(lp_key + '_ORIG')  # pyinstaller >= 20160820 has this
-        if lp_orig is not None:
-            env[lp_key] = lp_orig  # restore the original, unmodified value
-        else:
-            env.pop(lp_key, None)  # last resort: remove the env var
-    else:
-        env = None
-
+    # from https://pyinstaller.readthedocs.io/en/v3.3.1/runtime-information.html#ld-library-path-libpath-considerations
+    env = None
+    if getattr( sys, 'frozen', False ):
+        if sys.platform == 'linux':
+            env = dict(os.environ)  # make a copy of the environment
+            lp_key = 'LD_LIBRARY_PATH'  # for Linux and *BSD.
+            lp_orig = env.get(lp_key + '_ORIG')  # pyinstaller >= 20160820 has this
+            if lp_orig is not None:
+                env[lp_key] = lp_orig  # restore the original, unmodified value
+            else:
+                env.pop(lp_key, None)  # last resort: remove the env var
     command_line_process = subprocess.Popen(
         command, shell=True,
         stdout=subprocess.PIPE,
