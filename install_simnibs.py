@@ -214,12 +214,12 @@ def _run_postinstall(conda_executable, prefix, silent):
     if sys.platform == 'win32':
         run_command(
             f'call {activate_executable} simnibs_env && '
-            f'simnibs_postinstall {extra_args} -d {prefix}'
+            f'postinstall_simnibs {extra_args} -d {prefix}'
         )
     else:
         postinstall_executable = os.path.join(
             os.path.dirname(conda_executable),
-            '..', 'envs', 'simnibs_env', 'bin', 'simnibs_postinstall')
+            '..', 'envs', 'simnibs_env', 'bin', 'postinstall_simnibs')
         run_command(
             f'{postinstall_executable} {extra_args} -d {prefix}'
         )
