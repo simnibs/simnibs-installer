@@ -34,8 +34,8 @@ bash compile.sh
 ### Windows
 ```bash
 conda env create -f environment.yml
-pip install pyqt5
 conda activate simnibs_installer
+pip install pyqt5
 compile.cmd
 ```
 The additional pip install call is needed because of a bug in conda/pyinstaller. It might be removed in the future.

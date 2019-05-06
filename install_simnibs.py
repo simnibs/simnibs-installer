@@ -365,6 +365,7 @@ class InstallGUI(QtWidgets.QWizard):
         self.pre_release = pre_release
 
         # Button layout without the back button
+
         buttons_layout = []
         buttons_layout.append(QtWidgets.QWizard.Stretch )
         buttons_layout.append(QtWidgets.QWizard.NextButton )
@@ -372,12 +373,22 @@ class InstallGUI(QtWidgets.QWizard):
         buttons_layout.append(QtWidgets.QWizard.CancelButton )
         self.setButtonLayout(buttons_layout)
 
+        self.button(QtWidgets.QWizard.CancelButton).disconnect()
+        self.button(QtWidgets.QWizard.CancelButton).clicked.connect(self.cancel)
         # Add the pages
         self.addPage(self.options_page())
         self.addPage(self.install_page())
         self.setWindowTitle('SimNIBS Installer')
         self.setWindowIcon(QtGui.QIcon('gui_icon.gif'))
 
+    def cancel(self):
+        answ = QtWidgets.QMessageBox.question(
+            self, 'SimNIBS installation',
+            'Are you sure you want to cancel the installation?',
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No)
+        if answ == QtWidgets.QMessageBox.Yes:
+            self.reject()
 
     def options_page(self):
         ''' First page, where options are set '''
