@@ -5,3 +5,6 @@ dist/
 
 # Python
 __pycache__
+
+# Others
+install_simnibs.tar.gz

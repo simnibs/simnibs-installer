@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+
 import os
 import sys
 import tempfile
@@ -8,9 +9,9 @@ import shutil
 import logging
 import copy
 import re
-import requests
 import zipfile
 
+import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 # THIS LINES ARE KEY TO MAKE THE PYINSTALLER-FROZEN APP WORK ON WINDOWS
@@ -22,6 +23,11 @@ if sys.platform == "win32":
 
 __version__ = '1.0'
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
+if getattr( sys, 'frozen', False ):
+    FILENAME = sys.executable
+else:
+    FILENAME = __file__
+
 
 #logger = logging.getLogger(__name__)
 logger = logging.Logger('simnibs_installer', level=logging.INFO)
@@ -342,14 +348,9 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     _install_env_and_simnibs(url, conda_executable, prefix)
     _run_postinstall(conda_executable, prefix, silent)
     # Move the installer as 'update_simnibs'
-    if getattr( sys, 'frozen', False ):
-        shutil.copy(
-            sys.executable,
-            os.path.join(prefix, 'bin', 'update_simnibs'))
-    else:
-        shutil.copy(
-            __file__,
-            os.path.join(prefix, 'bin', 'update_simnibs.py'))
+    shutil.copy(
+        FILENAME,
+        os.path.join(prefix, 'bin', 'update_simnibs' + os.path.splitext(FILENAME)[1]))
 
     logger.info('SimNIBS successfuly installed')
 
@@ -380,7 +381,7 @@ class InstallGUI(QtWidgets.QWizard):
         self.addPage(self.options_page())
         self.addPage(self.install_page())
         self.setWindowTitle('SimNIBS Installer')
-        self.setWindowIcon(QtGui.QIcon('gui_icon.gif'))
+        self.setWindowIcon(QtGui.QIcon('gui_icon.ico'))
 
     def cancel(self):
         answ = QtWidgets.QMessageBox.question(
@@ -551,8 +552,12 @@ def start_gui(prefix, simnibs_version, pre_release):
 
 
 def _get_default_dir():
-    if os.path.isfile(_simnibs_exe('..')):
-        return os.path.abspath('..')
+    # Detects is is an update proceture
+    updir = os.path.abspath(
+        os.path.join(
+            os.path.dirname(FILENAME), '..'))
+    if os.path.isfile(_simnibs_exe(updir)):
+        return os.path.abspath(updir)
     if sys.platform == 'win32':
         return os.path.join(os.environ['LOCALAPPDATA'], 'SimNIBS')
     elif sys.platform == 'linux':
@@ -561,7 +566,7 @@ def _get_default_dir():
 
 def main():
     parser = argparse.ArgumentParser(prog="install_simnibs",
-                                     description="Updates SimNIBS to a given version")
+                                     description="Installs or updates SimNIBS")
     parser.add_argument('-s', '--silent', action='store_true',
                         help="Run installation in silent mode (no GUI). "
                              "Will automatically accept licences and overwrite any "

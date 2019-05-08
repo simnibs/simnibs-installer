@@ -7,6 +7,9 @@ conda env update -f environment.yml
 source activate simnibs_installer
 export FONTCONFIG_FILE=/etc/fonts/fonts.conf
 export FONTCONFIG_PATH=/etc/fonts/
-rm -rf dist/ build/
+rm -rf dist/ build/ install_simnibs/
 ./compile.sh
 dist/install_simnibs --pre-release -s
+cp README.txt LICENSE.txt dist
+mv dist/ install_simnibs
+tar -cvzf install_simnibs.tar.gz install_simnibs
