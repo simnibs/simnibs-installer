@@ -383,7 +383,12 @@ class InstallGUI(QtWidgets.QWizard):
         self.addPage(self.options_page())
         self.addPage(self.install_page())
         self.setWindowTitle('SimNIBS Installer')
-        self.setWindowIcon(QtGui.QIcon('gui_icon.ico'))
+        try:
+            curdir = sys._MEIPASS
+        except:
+            curdir = '.'
+        self.setWindowIcon(
+            QtGui.QIcon(os.path.join(curdir, 'gui_icon.ico')))
 
     def cancel(self):
         answ = QtWidgets.QMessageBox.question(
