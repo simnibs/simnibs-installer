@@ -348,9 +348,9 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     _install_env_and_simnibs(url, conda_executable, prefix)
     _run_postinstall(conda_executable, prefix, silent)
     # Move the installer as 'update_simnibs'
-    shutil.copy(
-        FILENAME,
-        os.path.join(prefix, 'bin', 'update_simnibs' + os.path.splitext(FILENAME)[1]))
+    target_name = os.path.join(prefix, 'bin', 'update_simnibs' + os.path.splitext(FILENAME)[1])
+    if not os.path.samefile(FILENAME, target_name):
+        shutil.copy(FILENAME, target_name)
 
     logger.info('SimNIBS successfuly installed')
 
