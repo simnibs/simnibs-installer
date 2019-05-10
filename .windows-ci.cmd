@@ -4,7 +4,6 @@ call Miniconda3.exe /InstallationType=JustMe /RegisterPython=0 /S /D=%cd%\MINICO
 call %cd%\MINICONDA\Scripts\activate
 call conda env create -f environment.yml
 call conda activate simnibs_installer
-pip install pyqt5
 call compile.cmd
 dist\install_simnibs.exe -s --pre-release
 echo %errorlevel%

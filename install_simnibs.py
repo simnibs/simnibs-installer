@@ -89,7 +89,7 @@ def _get_current_version(prefix):
         res = subprocess.check_output(
             f'{_simnibs_exe(prefix)} --version',
             shell=True,
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.PIPE,
             stdin=subprocess.DEVNULL)
     except subprocess.CalledProcessError():
         return None

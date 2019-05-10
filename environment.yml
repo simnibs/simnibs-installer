@@ -3,8 +3,10 @@ channels:
   - defaults
 dependencies:
   - python==3.6.*
-  - requests==2.12.*
   - pip
   - pip:
     - pyinstaller==3.*
     - pyqt5==5.12.*
+    - requests==2.12.*
+    - cryptography==2.6.*
+    - urllib3==1.25.*
