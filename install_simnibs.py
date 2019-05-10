@@ -2,30 +2,41 @@
 
 import os
 import sys
-import tempfile
 import subprocess
 import argparse
 import shutil
 import logging
-import copy
 import re
 import zipfile
 
 import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-# THIS LINES ARE KEY TO MAKE THE PYINSTALLER-FROZEN APP WORK ON WINDOWS
-# WE NEED TO DISABLE THE SETDLLDIRECTORYA CALL OR IT WILL AFECT ALL CHILD PROCESSES
-# https://github.com/pyinstaller/pyinstaller/issues/3795
-if sys.platform == "win32":
-    import ctypes
-    ctypes.windll.kernel32.SetDllDirectoryA(None)
-
 __version__ = '1.0'
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
+
+
 if getattr( sys, 'frozen', False ):
     FILENAME = sys.executable
+    # THIS LINES ARE KEY TO MAKE THE PYINSTALLER-FROZEN APP WORK ON WINDOWS
+    # WE NEED TO DISABLE THE SETDLLDIRECTORYA CALL OR IT WILL AFECT ALL CHILD PROCESSES
+    # https://github.com/pyinstaller/pyinstaller/issues/3795
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.kernel32.SetDllDirectoryA(None)
+
+    # Restore the original environment (Linux)
+    # from https://pyinstaller.readthedocs.io/en/v3.3.1/runtime-information.html#ld-library-path-libpath-considerations
+    if sys.platform == 'linux':
+        ENV = dict(os.environ)  # make a copy of the environment
+        lp_key = 'LD_LIBRARY_PATH'  # for Linux and *BSD.
+        lp_orig = ENV.get(lp_key + '_ORIG')  # pyinstaller >= 20160820 has this
+        if lp_orig is not None:
+            ENV[lp_key] = lp_orig  # restore the original, unmodified value
+        else:
+            ENV.pop(lp_key, None)  # last resort: remove the env var
 else:
+    ENV = None
     FILENAME = __file__
 
 
@@ -74,16 +85,15 @@ def _simnibs_exe(prefix):
 
 def _get_current_version(prefix):
     ''' Gets the current SimNIBS version by looking at the simnibs executable'''
-    res = subprocess.run(
-        f'{_simnibs_exe(prefix)} --version',
-        capture_output=True,
-        shell=True,
-        stdin=subprocess.DEVNULL)
     try:
-        res.check_returncode()
+        res = subprocess.check_output(
+            f'{_simnibs_exe(prefix)} --version',
+            shell=True,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL)
     except subprocess.CalledProcessError():
         return None
-    return res.stdout.decode().rstrip('\n').rstrip('\r')
+    return res.decode().rstrip('\n').rstrip('\r')
 
 def _download_env_docs(version, prefix, pre_release):
     ''' Looks for a given environment file os SimNIBS in the GitHub Releases
@@ -113,7 +123,8 @@ def _download_env_docs(version, prefix, pre_release):
                 f'{GH_RELEASES_URL}/assets/{asset["id"]}',
                 headers=dl_header, allow_redirects=True)
             r.raise_for_status()
-            open(os.path.join(prefix, env_file), 'wb').write(r.content)
+            with open(os.path.join(prefix, env_file), 'wb') as f:
+                f.write(r.content)
             logger.info('Finished downloading the environment file')
         if asset['name'] == 'documentation.zip':
             logger.info("Downloading the documentation")
@@ -153,8 +164,10 @@ def _download_and_install_miniconda(miniconda_dir):
     r = requests.get(url, allow_redirects=True)
     r.raise_for_status()
     if sys.platform == 'win32':
-        miniconda_installer_path = 'miniconda_installer.exe'
-        open(miniconda_installer_path, 'wb').write(r.content)
+        miniconda_installer_path = os.path.abspath(
+            os.path.join(miniconda_dir, '..', 'miniconda_installer.exe'))
+        with open(miniconda_installer_path, 'wb') as f:
+            f.write(r.content)
         logger.info('Finished downloading the Miniconda installer')
         logger.info('Installing Miniconda, this might take some time')
         run_command(
@@ -163,8 +176,10 @@ def _download_and_install_miniconda(miniconda_dir):
         logger.info('Finished installing Minicoda')
         os.remove(miniconda_installer_path)
     else:
-        miniconda_installer_path = 'miniconda_installer.sh'
-        open(miniconda_installer_path, 'wb').write(r.content)
+        miniconda_installer_path = os.path.abspath(
+            os.path.join(miniconda_dir, '..', 'miniconda_installer.sh'))
+        with open(miniconda_installer_path, 'wb') as f:
+            f.write(r.content)
         logger.info('Finished downloading the Miniconda installer')
         # Run the instaler
         run_command(
@@ -237,24 +252,12 @@ def run_command(command, log_level=logging.INFO):
     """
     logger.log(log_level, f'Execute: {command}')
 
-    # Restore the original environment
-    # from https://pyinstaller.readthedocs.io/en/v3.3.1/runtime-information.html#ld-library-path-libpath-considerations
-    env = None
-    if getattr( sys, 'frozen', False ):
-        if sys.platform == 'linux':
-            env = dict(os.environ)  # make a copy of the environment
-            lp_key = 'LD_LIBRARY_PATH'  # for Linux and *BSD.
-            lp_orig = env.get(lp_key + '_ORIG')  # pyinstaller >= 20160820 has this
-            if lp_orig is not None:
-                env[lp_key] = lp_orig  # restore the original, unmodified value
-            else:
-                env.pop(lp_key, None)  # last resort: remove the env var
     command_line_process = subprocess.Popen(
         command, shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
-        env=env
+        env=ENV
     )
     while command_line_process.returncode is None:
         command_line_process.poll()
