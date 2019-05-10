@@ -15,7 +15,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 __version__ = '1.0'
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
-
+ENV=None
 if getattr( sys, 'frozen', False ):
     FILENAME = sys.executable
     # THIS LINES ARE KEY TO MAKE THE PYINSTALLER-FROZEN APP WORK ON WINDOWS
@@ -36,7 +36,6 @@ if getattr( sys, 'frozen', False ):
         else:
             ENV.pop(lp_key, None)  # last resort: remove the env var
 else:
-    ENV = None
     FILENAME = __file__
 
 
