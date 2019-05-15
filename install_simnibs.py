@@ -145,9 +145,12 @@ def _download_env_docs(version, prefix, pre_release):
 def _env_file():
     if sys.platform == 'win32':
         return 'environment_win.yml'
-    else: 
-        return 'environment_unix.yml'
-
+    elif sys.platform == 'linux': 
+        return 'environment_linux.yml'
+    elif sys.platform == 'darwin': 
+        return 'environment_macOS.yml'
+    else:
+        raise OSError('OS not supported')
 
 def _download_and_install_miniconda(miniconda_dir):
     # Download Miniconda installer
@@ -571,6 +574,10 @@ def _get_default_dir():
         return os.path.join(os.environ['LOCALAPPDATA'], 'SimNIBS')
     elif sys.platform == 'linux':
        return os.path.join(os.environ['HOME'], 'SimNIBS')
+    elif sys.platform == 'linux':
+       return os.path.join(os.environ['HOME'], 'Applications', 'SimNIBS.app')
+    else:
+        raise OSError('OS not supported')
 
 
 def main():

@@ -12,10 +12,10 @@ yum install -y mesa-libGL yum-utils fontconfig freetype freetype-devel fontconfi
 yum groupinstall -y development
 yum install -y https://centos7.iuscommunity.org/ius-release.rpm
 yum install -y python36u python36u-pip python36u-devel
-pip3.6 install pyqt5==5.12.* pyinstaller==3.4.* requests==2.21.*
+pip3.6 install -r requirements.txt
 rm -rf dist/ build/ install_simnibs/
 ./compile.sh
 dist/install_simnibs --pre-release -s
 cp README.txt LICENSE.txt dist
 mv dist/ install_simnibs
-tar -cvzf install_simnibs.tar.gz install_simnibs
+tar -cvzf install_simnibs_linux.tar.gz install_simnibs

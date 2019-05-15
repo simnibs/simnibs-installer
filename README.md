@@ -20,25 +20,20 @@ You should also download the latest compiled version by clicking on "Artifacts",
 I don't recommend compiling locally, as the builds in Azure already use old OS versions (CentOS6, Windows 2012) to maximize compatibility
 
 SimNIBS installer is meant to be compiled to a binary using PyInstaller, and the binary shipped to the final user.
-The installer also depends on PyQt5 and Requests.
-To install the requirements and compile the SimNIBS installer using conda, please use
+The installer depends on Python >= 3.6 PyQt5 and Requests.
 
 ### Linux/OSX
 
 ```bash
-conda env create -f environment.yml
-conda activate simnibs_installer
+pip install -r requirements.txt
 bash compile.sh
 ```
 
 ### Windows
 ```bash
-conda env create -f environment.yml
-conda activate simnibs_installer
-pip install pyqt5
+pip install -r requirements.txt
 compile.cmd
 ```
-The additional pip install call is needed because of a bug in conda/pyinstaller. It might be removed in the future.
 
 The compiled binary can be found in the dist/ folder
 
