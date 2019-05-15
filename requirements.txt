@@ -3,3 +3,5 @@ pyqt5==5.12.*
 requests==2.12.*
 cryptography==2.6.*
 urllib3==1.25.*
+certifi==2019.3.*
+cffi==1.12.*

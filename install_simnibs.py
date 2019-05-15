@@ -574,7 +574,7 @@ def _get_default_dir():
         return os.path.join(os.environ['LOCALAPPDATA'], 'SimNIBS')
     elif sys.platform == 'linux':
        return os.path.join(os.environ['HOME'], 'SimNIBS')
-    elif sys.platform == 'linux':
+    elif sys.platform == 'darwin':
        return os.path.join(os.environ['HOME'], 'Applications', 'SimNIBS.app')
     else:
         raise OSError('OS not supported')
