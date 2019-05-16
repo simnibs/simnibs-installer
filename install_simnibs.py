@@ -90,7 +90,7 @@ def _get_current_version(prefix):
             shell=True,
             stderr=subprocess.PIPE,
             stdin=subprocess.DEVNULL)
-    except subprocess.CalledProcessError():
+    except subprocess.CalledProcessError:
         return None
     return res.decode().rstrip('\n').rstrip('\r')
 
@@ -173,8 +173,8 @@ def _download_and_install_miniconda(miniconda_dir):
         logger.info('Finished downloading the Miniconda installer')
         logger.info('Installing Miniconda, this might take some time')
         run_command(
-            f'{miniconda_installer_path} /InstallationType=JustMe '
-            f'/RegisterPython=0 /AddToPath=0 /S /D={miniconda_dir}')
+            f'"{miniconda_installer_path}" /InstallationType=JustMe '
+            f'/RegisterPython=0 /AddToPath=0 /S /D="{miniconda_dir}"')
         logger.info('Finished installing Minicoda')
         os.remove(miniconda_installer_path)
     else:
@@ -185,8 +185,8 @@ def _download_and_install_miniconda(miniconda_dir):
         logger.info('Finished downloading the Miniconda installer')
         # Run the instaler
         run_command(
-            f'bash {miniconda_installer_path} '
-            f'-b -f -p {miniconda_dir}')
+            f'bash "{miniconda_installer_path}" '
+            f'-b -f -p "{miniconda_dir}"')
         logger.info('Finished installing Minicoda')
         os.remove(miniconda_installer_path)
 
@@ -200,26 +200,26 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
     env_file = os.path.join(prefix, _env_file())
     if sys.platform == 'win32':
         run_command(
-            f'call {activate_executable} && '
+            f'call "{activate_executable}" && '
             f'conda update -y conda && '
-            f'conda env update -f {env_file}'
+            f'conda env update -f "{env_file}"'
         )
         run_command(
-            f'call {activate_executable} simnibs_env && '
+            f'call "{activate_executable}" simnibs_env && '
             f'pip install --upgrade -f {version_url} simnibs'
         )
     else:
         # I use "." instead of source as it is executed in an sh shell
         run_command(
-            f'. {activate_executable} && '
+            f'. "{activate_executable}" && '
             f'conda update -y conda && '
-            f'conda env update -f {env_file}'
+            f'conda env update -f "{env_file}"'
         )
         pip_executable = os.path.join(
             os.path.dirname(conda_executable),
             '..', 'envs', 'simnibs_env', 'bin', 'pip')
         run_command(
-            f'{pip_executable} install --upgrade -f {version_url} simnibs'
+            f'"{pip_executable}" install --upgrade -f {version_url} simnibs'
         )
 
 
@@ -236,15 +236,15 @@ def _run_postinstall(conda_executable, prefix, silent):
         extra_args = ''
     if sys.platform == 'win32':
         run_command(
-            f'call {activate_executable} simnibs_env && '
-            f'postinstall_simnibs {extra_args} -d {prefix} --copy-matlab --setup-links'
+            f'call "{activate_executable}" simnibs_env && '
+            f'postinstall_simnibs {extra_args} -d "{prefix}" --copy-matlab --setup-links'
         )
     else:
         postinstall_executable = os.path.join(
             os.path.dirname(conda_executable),
             '..', 'envs', 'simnibs_env', 'bin', 'postinstall_simnibs')
         run_command(
-            f'{postinstall_executable} {extra_args} -d {prefix} '
+            f'"{postinstall_executable}" {extra_args} -d "{prefix}" '
             '--copy-matlab --setup-links'
         )
 
@@ -284,6 +284,10 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     ''' Main function for installation
     '''
     # Make the install directory
+    if " " in prefix:
+        text = "Found spaces in install path! Installation may fail!"
+        logger.warn(text)
+
     if not os.path.isdir(prefix):
         os.makedirs(prefix)
 
