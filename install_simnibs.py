@@ -86,7 +86,7 @@ def _get_current_version(prefix):
     ''' Gets the current SimNIBS version by looking at the simnibs executable'''
     try:
         res = subprocess.check_output(
-            f'{_simnibs_exe(prefix)} --version',
+            f'"{_simnibs_exe(prefix)}" --version',
             shell=True,
             stderr=subprocess.PIPE,
             stdin=subprocess.DEVNULL)
@@ -174,7 +174,8 @@ def _download_and_install_miniconda(miniconda_dir):
         logger.info('Installing Miniconda, this might take some time')
         run_command(
             f'"{miniconda_installer_path}" /InstallationType=JustMe '
-            f'/RegisterPython=0 /AddToPath=0 /S /D="{miniconda_dir}"')
+            f'/RegisterPython=0 /AddToPath=0 /S /D={miniconda_dir}')
+        # The /D argument should NOT be wrapped in ""
         logger.info('Finished installing Minicoda')
         os.remove(miniconda_installer_path)
     else:
