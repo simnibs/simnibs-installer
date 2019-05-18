@@ -286,8 +286,11 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     '''
     # Make the install directory
     if " " in prefix:
-        text = "Found spaces in install path! Installation may fail!"
-        logger.warn(text)
+        text = "Found spaces in the installation path!"
+        if sys.platform == 'win32':
+            logger.warn(text)
+        else:
+            raise IOError(text)
 
     if not os.path.isdir(prefix):
         os.makedirs(prefix)
@@ -330,7 +333,6 @@ def run_install(prefix, simnibs_version, pre_release, silent):
                     "Can't downgrade SimNIBS!\n"
                     f"current version: {curr_version}\n"
                     f"requested version: {requested_version}\n")
-                return
             elif curr_idx == requested_idx:
                 logger.info('SimNIBS is already in the requested version')
                 return
