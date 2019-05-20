@@ -379,6 +379,7 @@ class InstallGUI(QtWidgets.QWizard):
         self.prefix = prefix
         self.simnibs_version = simnibs_version
         self.pre_release = pre_release
+        self.successful = False
 
         # Button layout without the back button
 
@@ -391,9 +392,15 @@ class InstallGUI(QtWidgets.QWizard):
 
         self.button(QtWidgets.QWizard.CancelButton).disconnect()
         self.button(QtWidgets.QWizard.CancelButton).clicked.connect(self.cancel)
-        # Add the pages
-        self.addPage(self.options_page())
-        self.addPage(self.install_page())
+        self.page_options = 0
+        self.page_install = 1
+        self.page_finish = 2
+        self.page_error = 3
+        self.setPage(self.page_options, self.options_page())
+        self.setPage(self.page_install, self.install_page())
+        self.setPage(self.page_finish, self.finish_page())
+        self.setPage(self.page_error, self.error_page())
+        #self.setStartID(self.Page_options)
         self.setWindowTitle('SimNIBS Installer')
         try:
             curdir = sys._MEIPASS
@@ -401,6 +408,24 @@ class InstallGUI(QtWidgets.QWizard):
             curdir = '.'
         self.setWindowIcon(
             QtGui.QIcon(os.path.join(curdir, 'gui_icon.ico')))
+
+        if sys.platform == 'darwin':
+            self.setWizardStyle(QtWidgets.QWizard.MacStyle)
+        else:
+            self.setWizardStyle(QtWidgets.QWizard.ModernStyle)
+
+    def nextId(self):
+        if self.currentId() == self.page_install:
+            if self.successful:
+                return self.page_finish
+            else:
+                return self.page_error
+        elif self.currentId() == self.page_finish:
+            return -1
+        elif self.currentId() == self.page_error:
+            return -1
+        else:
+            return self.currentId() + 1
 
     def cancel(self):
         answ = QtWidgets.QMessageBox.question(
@@ -416,7 +441,7 @@ class InstallGUI(QtWidgets.QWizard):
         options_page = QtWidgets.QWizardPage()
         options_page.setTitle('Installation Options')
         options_page.setSubTitle(
-            'The installer will donwload and install SimNIBS 3 and its requiremets.\n'
+            'The installer will donwload and install SimNIBS and its requiremets.\n'
             'The final installation requires about 3 GB of space')
         layout = QtWidgets.QGridLayout()
 
@@ -491,6 +516,7 @@ class InstallGUI(QtWidgets.QWizard):
 
 
         self.install_thread = None
+        self.successful = False
         def start_thread():
             ''' Starts the install procedure '''
             self.install_thread = InstallerThread(
@@ -504,9 +530,11 @@ class InstallGUI(QtWidgets.QWizard):
             if successful:
                 QtWidgets.QMessageBox.information(
                     self, 'SimNIBS Installation', msg)
+                self.successful = True
             else:
                 QtWidgets.QMessageBox.critical(
                     self, 'SimNIBS Installation Error', msg)
+                self.successful = False
 
         def install_finished():
             ''' Changes the status '''
@@ -520,6 +548,43 @@ class InstallGUI(QtWidgets.QWizard):
         
 
         return install_page
+
+    def finish_page(self):
+        finish_page = QtWidgets.QWizardPage()
+        finish_page.setTitle('Installation Successful')
+        layout = QtWidgets.QHBoxLayout()
+        text = QtWidgets.QLabel(
+            'Please visit <a href="http://www.simnibs.org"> www.simnibs.org </a> to'
+            ' learn how to use SimNIBS and download our example dataset')
+        text.setOpenExternalLinks(True)
+        text.setWordWrap(True)
+        layout.addWidget(text)
+        finish_page.setLayout(layout)
+        return finish_page
+
+    def error_page(self):
+        error_page = QtWidgets.QWizardPage()
+        error_page.setTitle('There was an error installing SimNIBS')
+        def make_layout():
+            layout = QtWidgets.QVBoxLayout()
+            text = QtWidgets.QLabel(
+                'Please visit <a href="http://www.simnibs.org"> www.simnibs.org </a> '
+                'for troubleshooting information')
+            text.setOpenExternalLinks(True)
+            text.setWordWrap(True)
+            layout.addWidget(text)
+            layout.addWidget(QtWidgets.QLabel(
+                'If the error persists, please send the file:'))
+            layout.addWidget(QtWidgets.QLabel(
+                f'{os.path.join(self.prefix, "simnibs_install_log.txt")}'))
+            layout.addWidget(QtWidgets.QLabel(
+                'to support@simnibs.org'))
+            error_page.setLayout(layout)
+
+        error_page.initializePage = make_layout
+        return error_page
+
+
 
 
 @QtCore.pyqtSlot(str)
@@ -552,8 +617,6 @@ class InstallerThread(QtCore.QThread):
         try:
             run_install(self.prefix, self.simnibs_version, self.pre_release, False)
         except Exception as e:
-            # The message box bellow is causing segmentation faults
-            #QtWidgets.QMessageBox.critical(self.parent, 'Error', str(e))
             logger.critical(str(e))
             self.final_message.emit(False, str(e))
             raise e
