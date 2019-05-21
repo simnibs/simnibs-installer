@@ -207,7 +207,7 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
         )
         run_command(
             f'call "{activate_executable}" simnibs_env && '
-            f'pip install --upgrade -f {version_url} simnibs'
+            f'pip install --no-cache-dir --upgrade -f {version_url} simnibs'
         )
     else:
         # I use "." instead of source as it is executed in an sh shell
@@ -220,7 +220,7 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
             os.path.dirname(conda_executable),
             '..', 'envs', 'simnibs_env', 'bin', 'pip')
         run_command(
-            f'"{pip_executable}" install --upgrade -f {version_url} simnibs'
+            f'"{pip_executable}" install --no-cache-dir --upgrade -f {version_url} simnibs'
         )
 
 
