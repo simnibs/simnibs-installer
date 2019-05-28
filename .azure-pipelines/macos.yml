@@ -1,0 +1,40 @@
+trigger:
+- master
+
+jobs:
+
+- job: Build Test and Distribute
+  pool:
+    name: Hosted macOS
+  steps:
+  - task: UsePythonVersion@0
+    displayName: 'Use Python 3.6'
+    inputs:
+      versionSpec: 3.6
+  
+  - script: |
+      pip install -r requirements.txt
+      ./compile.sh
+      dist/install_simnibs -s --pre-release
+      mv dist/* .
+      #zip -r install_simnibs_macOS.zip install_simnibs.app
+      # for now, because we dont have a certificate, i will ship the executable instead of the app
+      zip -r install_simnibs_macOS.zip install_simnibs
+    displayName: 'Command Line Script'
+  
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifact: macOS-dist'
+    inputs:
+      PathtoPublish: 'install_simnibs_macOS.zip'
+      ArtifactName: 'macOS-dist'
+
+  - task: GithubRelease@0
+    displayName: Edit GitHub Release
+    inputs: 
+      gitHubConnection: guilhermebs # I use my connection because github does not generate OAuth token for organizations
+      repositoryName: simnibs/simnibs-installer
+      action: edit
+      tag: dev
+      assets: install_simnibs_macOS.zip
+      assetUploadMode: 'replace'
+      isDraft: true

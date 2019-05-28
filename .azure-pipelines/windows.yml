@@ -1,0 +1,39 @@
+trigger:
+- master
+
+jobs:
+
+- job: Build Test and Distribute
+  pool:
+    name: Hosted VS2017
+  steps:
+  - task: UsePythonVersion@0
+    displayName: 'Use Python 3.6'
+    inputs:
+      versionSpec: 3.6
+  
+  - script: |
+        pip install -r requirements.txt
+	call compile.cmd
+	move dist\install_simnibs.exe dist\install_simnibs_windows.exe
+    displayName: 'Build'
+
+  - script: dist\install_simnibs_windows.exe -s --pre-release
+    displayName: 'Test'
+  
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifact: win-dist'
+    inputs:
+      PathtoPublish: dist
+      ArtifactName: 'win-dist'
+
+  - task: GithubRelease@0
+    displayName: Edit GitHub Release
+    inputs: 
+      gitHubConnection: guilhermebs # I use my connection because github does not generate OAuth token for organizations
+      repositoryName: simnibs/simnibs-installer
+      action: edit
+      tag: dev
+      assets: dist\install_simnibs_windows.exe
+      assetUploadMode: 'replace'
+      isDraft: true
