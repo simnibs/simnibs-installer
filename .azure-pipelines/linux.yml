@@ -11,7 +11,7 @@ jobs:
 
   steps:
   - script: |
-      pip3.6 install -r requirements.txt
+      pip3.6 install --user -r requirements.txt
       rm -rf dist/ build/ install_simnibs/
       ./compile.sh
       dist/install_simnibs --pre-release -s
