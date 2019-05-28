@@ -12,7 +12,7 @@ import zipfile
 import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-__version__ = '1.0'
+__version__ = '0.1'
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
 ENV=None
