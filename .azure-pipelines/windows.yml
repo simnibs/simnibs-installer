@@ -13,9 +13,9 @@ jobs:
       versionSpec: 3.6
   
   - script: |
-        pip install -r requirements.txt
-	call compile.cmd
-	move dist\install_simnibs.exe dist\install_simnibs_windows.exe
+      pip install -r requirements.txt
+      call compile.cmd
+      move dist\install_simnibs.exe dist\install_simnibs_windows.exe
     displayName: 'Build'
 
   - script: dist\install_simnibs_windows.exe -s --pre-release
