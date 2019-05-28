@@ -8,6 +8,8 @@ import shutil
 import logging
 import re
 import zipfile
+import tempfile
+import tarfile
 
 import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -59,14 +61,53 @@ def log_excep(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = log_excep
 
-def _get_versions(pre_release=False):
-    ''' Get avaliable SimNIBS version '''
-    response = requests.get(GH_RELEASES_URL)
+def self_update():
+    ''' Updates the updater '''
+    installer_url = 'https://api.github.com/repos/simnibs/simnibs-installer/releases'
+    versions, data = _get_versions(installer_url)
+    try:
+        curr_idx = versions[__version__]
+        latest = curr_idx == 0
+        print(latest)
+    except KeyError:
+        latest = True
+    latest=False
+    if latest:
+        return
+    logger.info('Updating the SimNIBS installer ...')
+    if sys.platform == 'linux':
+        asset_name = 'install_simnibs_linux.tar.gz'
+    elif sys.platform == 'darwin':
+        asset_name = 'install_simnibs_macOS.zip'
+    elif sys.platform == 'win32':
+        asset_name = 'install_simnibs_windows.exe'
+    else:
+        raise OSError('OS not supported')
+    if not latest:
+        shutil.move(FILENAME, FILENAME + '.old')
+        with tempfile.TemporaryDirectory() as tmpdir:
+            download_name = os.path.join(tmpdir, asset_name)
+            _download_asset(installer_url, data[0], asset_name, download_name)
+            if sys.platform == 'win32':
+                shutil.move(download_name, FILENAME) 
+            elif sys.platform == 'darwin':
+                with zipfile.ZipFile(download_name) as z:
+                    z.extractall(tmpdir)
+                shutil.move(os.path.join(tmpdir, 'install_simnibs'), FILENAME) 
+            elif sys.platform == 'linux':
+                with tarfile.open(download_name) as t:
+                    t.extractall(tmpdir)
+                shutil.move(os.path.join(tmpdir, 'install_simnibs'), FILENAME) 
+            shutil.remove(FILENAME + '.old')
+
+
+def _get_versions(url, pre_release=False):
+    ''' Get avaliable versions and release data'''
+    response = requests.get(url)
     # Raise an exception if the API call fails.
     response.raise_for_status()
     data = response.json()
     versions = {}
-    #breakpoint()
     for i, d in enumerate(data):
         if d['tag_name'][0] == 'v':
             if not d['prerelease']:
@@ -74,7 +115,7 @@ def _get_versions(pre_release=False):
             if d['prerelease'] and pre_release:
                 versions[d['tag_name'][1:]] = i
 
-    return versions
+    return versions, data
 
 def _simnibs_exe(prefix):
     if sys.platform == 'win32':
@@ -83,7 +124,7 @@ def _simnibs_exe(prefix):
         return os.path.abspath(os.path.join(prefix, 'bin', 'simnibs'))
 
 def _get_current_version(prefix):
-    ''' Gets the current SimNIBS version by looking at the simnibs executable'''
+    ''' determines the current SimNIBS version by looking at the simnibs executable'''
     try:
         res = subprocess.check_output(
             f'"{_simnibs_exe(prefix)}" --version',
@@ -94,14 +135,23 @@ def _get_current_version(prefix):
         return None
     return res.decode().rstrip('\n').rstrip('\r')
 
+def _download_asset(url, release_data, asset_name, fn):
+    dl_header = {'Accept': 'application/octet-stream'}
+    for asset in release_data['assets']:
+        if asset['name'] == asset_name:
+            r = requests.get(
+                f'{url}/assets/{asset["id"]}',
+                headers=dl_header, allow_redirects=True)
+            r.raise_for_status()
+            with open(fn, 'wb') as f:
+                f.write(r.content)
+            return
+    logger.warn(f'Could not find the asset {asset_name}')
+
 def _download_env_docs(version, prefix, pre_release):
     ''' Looks for a given environment file os SimNIBS in the GitHub Releases
     '''
-    response = requests.get(GH_RELEASES_URL)
-    # Raise an exception if the API call fails.
-    response.raise_for_status()
-    data = response.json()
-    avaliable_versions = _get_versions(pre_release)
+    avaliable_versions, data = _get_versions(GH_RELEASES_URL, pre_release)
     try:
         release_data = data[avaliable_versions[version]]
     except KeyError:
@@ -112,34 +162,20 @@ def _download_env_docs(version, prefix, pre_release):
 
     # Download the environment file
     env_file = _env_file()
-    dl_header = {'Accept': 'application/octet-stream'}
-    for asset in release_data['assets']:
-        if asset['name'] == env_file:
-            logger.info(
-                f"Downloading the environment file for version: "
-                f"{release_data['tag_name'][1:]}")
-            r = requests.get(
-                f'{GH_RELEASES_URL}/assets/{asset["id"]}',
-                headers=dl_header, allow_redirects=True)
-            r.raise_for_status()
-            with open(os.path.join(prefix, env_file), 'wb') as f:
-                f.write(r.content)
-            logger.info('Finished downloading the environment file')
-        if asset['name'] == 'documentation.zip':
-            logger.info("Downloading the documentation")
-            r = requests.get(
-                f'{GH_RELEASES_URL}/assets/{asset["id"]}',
-                headers=dl_header, allow_redirects=True)
-            r.raise_for_status()
-            fn_zip = os.path.join(prefix, 'documentation.zip')
-            open(fn_zip, 'wb').write(r.content)
-            logger.info('Finished downloading the documentation')
-            logger.info('Extracting the documentation')
-            if os.path.isdir(os.path.join(prefix, 'documentation')):
-                shutil.rmtree(os.path.join(prefix, 'documentation'))
-            with zipfile.ZipFile(fn_zip) as z:
-                z.extractall(os.path.join(prefix, 'documentation'))
-            os.remove(fn_zip)
+    logger.info(f"Version: {release_data['tag_name'][1:]}")
+    logger.info("Downloading the environment file")
+    _download_asset(GH_RELEASES_URL, release_data, env_file, os.path.join(prefix, env_file))
+    logger.info('Finished downloading the environment file')
+    logger.info("Downloading the documentation")
+    _download_asset(
+        GH_RELEASES_URL, release_data, 'documentation.zip', os.path.join(prefix, 'documentation.zip'))
+    logger.info('Finished downloading the documentation')
+    logger.info('Extracting the documentation')
+    if os.path.isdir(os.path.join(prefix, 'documentation')):
+        shutil.rmtree(os.path.join(prefix, 'documentation'))
+    with zipfile.ZipFile(os.path.join(prefix, 'documentation.zip')) as z:
+        z.extractall(os.path.join(prefix, 'documentation'))
+    os.remove(os.path.join(prefix, 'documentation.zip'))
     return release_data['html_url']
 
 def _env_file():
@@ -304,7 +340,7 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     logger.addHandler(fh)
 
     # Check the currently avaliable versisons
-    avaliable_versions = _get_versions(pre_release)
+    avaliable_versions, _ = _get_versions(GH_RELEASES_URL, pre_release)
     if simnibs_version == 'latest':
         requested_version = list(avaliable_versions.keys())[0]
     else:
@@ -460,7 +496,7 @@ class InstallGUI(QtWidgets.QWizard):
         layout.addWidget(QtWidgets.QLabel('Version to install:'), 1, 0)
         version_box = QtWidgets.QComboBox()
         version_box.activated.connect(self.set_simnibs_version)
-        self.avaliable_versions = _get_versions(self.pre_release)
+        self.avaliable_versions, _ = _get_versions(GH_RELEASES_URL, self.pre_release)
         latest_version = list(self.avaliable_versions.keys())[0]
         if self.simnibs_version == 'latest':
            selected_version = latest_version
@@ -668,6 +704,7 @@ def main():
                         help= "Also list pre-release versions")
     parser.add_argument('--version', action='version', version=__version__)
     args = parser.parse_args(sys.argv[1:])
+    self_update()
     if args.silent:
         run_install(args.prefix, args.simnibs_version, args.pre_release, True)
     else:
