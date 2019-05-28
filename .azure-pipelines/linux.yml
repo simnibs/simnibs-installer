@@ -1,0 +1,32 @@
+trigger:
+- master
+
+# Build SimNIBS on a Centos 6 container
+jobs:
+- job: Build
+  pool:
+    vmImage: 'ubuntu-16.04'
+
+  container: simnibs/simnibs-testing:linux-installer
+
+  steps:
+  - script: |
+      pip3.6 install -r requirements.txt
+      rm -rf dist/ build/ install_simnibs/
+      ./compile.sh
+      dist/install_simnibs --pre-release -s
+      cp README.txt LICENSE.txt dist
+      mv dist/ install_simnibs
+      tar -cvzf install_simnibs_linux.tar.gz install_simnibs
+    displayName: 'Build and Test'
+  
+  - task: GithubRelease@0
+    displayName: Edit GitHub Release
+    inputs: 
+      gitHubConnection: guilhermebs # I use my connection because github does not generate OAuth token for organizations
+      repositoryName: simnibs/simnibs-installer
+      action: edit
+      tag: dev
+      assets: install_simnibs_linux.tar.gz
+      assetUploadMode: 'replace'
+      isDraft: true
