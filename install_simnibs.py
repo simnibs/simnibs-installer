@@ -14,7 +14,8 @@ import tarfile
 import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-__version__ = '0.1'
+#ATTENTION: REMEMBER TO UPDATE THE VERSION HERE TOGETHER WITH THE RELEASE!
+__version__ = '0.2'
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
 ENV=None
@@ -61,19 +62,23 @@ def log_excep(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = log_excep
 
-def self_update():
+def self_update(silent):
     ''' Updates the updater '''
     installer_url = 'https://api.github.com/repos/simnibs/simnibs-installer/releases'
     versions, data = _get_versions(installer_url)
     try:
         curr_idx = versions[__version__]
         latest = curr_idx == 0
-        print(latest)
     except KeyError:
         latest = True
-    latest=False
     if latest:
         return
+    else:
+        update = _get_input('Found a new version of the SimNIBS installer, update it?',
+                            silent)
+    if not update:
+        return
+
     logger.info('Updating the SimNIBS installer ...')
     if sys.platform == 'linux':
         asset_name = 'install_simnibs_linux.tar.gz'
@@ -83,22 +88,50 @@ def self_update():
         asset_name = 'install_simnibs_windows.exe'
     else:
         raise OSError('OS not supported')
-    if not latest:
-        shutil.move(FILENAME, FILENAME + '.old')
-        with tempfile.TemporaryDirectory() as tmpdir:
-            download_name = os.path.join(tmpdir, asset_name)
-            _download_asset(installer_url, data[0], asset_name, download_name)
-            if sys.platform == 'win32':
-                shutil.move(download_name, FILENAME) 
-            elif sys.platform == 'darwin':
-                with zipfile.ZipFile(download_name) as z:
-                    z.extractall(tmpdir)
-                shutil.move(os.path.join(tmpdir, 'install_simnibs'), FILENAME) 
-            elif sys.platform == 'linux':
-                with tarfile.open(download_name) as t:
-                    t.extractall(tmpdir)
-                shutil.move(os.path.join(tmpdir, 'install_simnibs'), FILENAME) 
-            shutil.remove(FILENAME + '.old')
+    shutil.move(FILENAME, FILENAME + '.old')
+    with tempfile.TemporaryDirectory() as tmpdir:
+        download_name = os.path.join(tmpdir, asset_name)
+        _download_asset(installer_url, data[0], asset_name, download_name)
+        if sys.platform == 'win32':
+            shutil.move(download_name, FILENAME) 
+        elif sys.platform == 'darwin':
+            with zipfile.ZipFile(download_name) as z:
+                z.extractall(tmpdir)
+            shutil.move(os.path.join(tmpdir, 'install_simnibs'), FILENAME) 
+        elif sys.platform == 'linux':
+            with tarfile.open(download_name) as t:
+                t.extractall(tmpdir)
+            shutil.move(os.path.join(tmpdir, 'install_simnibs', 'install_simnibs'), FILENAME) 
+        os.remove(FILENAME + '.old')
+
+    if silent:
+        logger.info('SimNIBS installer updated, please start it again')
+    else:
+        app = QtWidgets.QApplication(sys.argv)
+        QtWidgets.QMessageBox.information(
+            None, 'SimNIBS installer', 'SimNIBS installer updated, please start it again')
+
+    sys.exit(0) #yes, I know...
+
+def _get_input(message, silent):
+    '''Simple function to get user input via command line or GUI '''
+    if silent:
+        answer = input(
+            f'{message} [Y/n]')
+        if answer in ['n', 'N', 'no', 'No']:
+            return False
+        elif answer in ['', 'y', 'Y', 'yes', 'Yes']:
+            return True
+        else:
+            raise ValueError(f'Unrecognized answer: {answer}')
+    else:
+        app = QtWidgets.QApplication(sys.argv)
+        answer = QtWidgets.QMessageBox.question(
+            None,'SimNIBS Installer', message,
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.Yes)
+        return answer == QtWidgets.QMessageBox.Yes
+
 
 
 def _get_versions(url, pre_release=False):
@@ -437,7 +470,7 @@ class InstallGUI(QtWidgets.QWizard):
         self.setPage(self.page_finish, self.finish_page())
         self.setPage(self.page_error, self.error_page())
         #self.setStartID(self.Page_options)
-        self.setWindowTitle('SimNIBS Installer')
+        self.setWindowTitle(f'SimNIBS Installer {__version__}')
         try:
             curdir = sys._MEIPASS
         except:
@@ -704,7 +737,7 @@ def main():
                         help= "Also list pre-release versions")
     parser.add_argument('--version', action='version', version=__version__)
     args = parser.parse_args(sys.argv[1:])
-    self_update()
+    self_update(args.silent)
     if args.silent:
         run_install(args.prefix, args.simnibs_version, args.pre_release, True)
     else:
