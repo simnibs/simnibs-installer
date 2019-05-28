@@ -2,19 +2,11 @@
 
 Installer for SimNIBS
 
-## Status
+## Build Status
 
-I've programmed a CI in Azure Pipelines to automatically build and test the installer.
-You should also download the latest compiled version by clicking on "Artifacts", in the top right corner of the page
-
-### Linux
-[![Build Status](https://dev.azure.com/simnibs/simnibs-installer/_apis/build/status/Installer%20-%20Linux?branchName=master)](https://dev.azure.com/simnibs/simnibs-installer/_build/latest?definitionId=6&branchName=master)
-
-### Windows
-[![Build Status](https://dev.azure.com/simnibs/simnibs-installer/_apis/build/status/Installer%20-%20Windows?branchName=master)](https://dev.azure.com/simnibs/simnibs-installer/_build/latest?definitionId=7&branchName=master)
-
-### MacOS
-[![Build Status](https://dev.azure.com/simnibs/simnibs-installer/_apis/build/status/Installer%20-%20MacOS?branchName=master)](https://dev.azure.com/simnibs/simnibs-installer/_build/latest?definitionId=10&branchName=master)
+| Linux   | Windows    | MacOS |
+|---------|------------|-----|
+| [![Build Status](https://dev.azure.com/simnibs/simnibs-installer/_apis/build/status/Installer%20-%20Linux?branchName=master)](https://dev.azure.com/simnibs/simnibs-installer/_build/latest?definitionId=13&branchName=master)| [![Build Status](https://dev.azure.com/simnibs/simnibs-installer/_apis/build/status/Installer%20-%20Windows?branchName=master)](https://dev.azure.com/simnibs/simnibs-installer/_build/latest?definitionId=12&branchName=master) | [![Build Status](https://dev.azure.com/simnibs/simnibs-installer/_apis/build/status/Installer%20-%20MacOS?branchName=master)](https://dev.azure.com/simnibs/simnibs-installer/_build/latest?definitionId=11&branchName=master) |
 
 ## Compiling Locally
 
