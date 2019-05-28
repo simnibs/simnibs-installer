@@ -3,7 +3,7 @@ trigger:
 
 jobs:
 
-- job: Build Test and Distribute
+- job: Build
   pool:
     name: Hosted macOS
   steps:
