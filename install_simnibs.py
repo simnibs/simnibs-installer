@@ -621,13 +621,26 @@ class InstallGUI(QtWidgets.QWizard):
     def finish_page(self):
         finish_page = QtWidgets.QWizardPage()
         finish_page.setTitle('Installation Successful')
-        layout = QtWidgets.QHBoxLayout()
+
+        latest_release = _get_versions(
+            'https://api.github.com/repos/simnibs/example-dataset/releases')[1][0]
+        example_url = latest_release['assets'][0]['browser_download_url']
+
+        layout = QtWidgets.QVBoxLayout()
         text = QtWidgets.QLabel(
-            'Please visit <a href="http://www.simnibs.org"> www.simnibs.org </a> to'
-            ' learn how to use SimNIBS and download our example dataset')
+            f'<font size="+1">'
+            f'To learn more about SimNIBS, please'
+            f'<ul>'
+            f'<li> <a href="https://simnibs.github.io/simnibs"> Visit our website </a> </li>'
+            f'<li> <a href="{example_url}"> Download the example dataset </a> </li>'
+            f'<li> <a href="https://simnibs.github.io/simnibs/build/html/tutorial/gui.html"> Follow the tutorial </a>'
+            f'</ul>'
+            f'</font>'
+            )
         text.setOpenExternalLinks(True)
         text.setWordWrap(True)
         layout.addWidget(text)
+
         finish_page.setLayout(layout)
         return finish_page
 
