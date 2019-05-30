@@ -10,6 +10,7 @@ import re
 import zipfile
 import tempfile
 import tarfile
+import stat
 
 import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -89,8 +90,8 @@ def self_update(silent):
         asset_name = 'install_simnibs_windows.exe'
     else:
         raise OSError('OS not supported')
+
     tmp_fn = os.path.join(tempfile.gettempdir(), os.path.basename(FILENAME))
-    #tmp_fn = FILENAME + '.old'
     if os.path.isfile(tmp_fn):
         os.remove(tmp_fn)
     shutil.move(FILENAME, tmp_fn)
@@ -107,6 +108,12 @@ def self_update(silent):
             with tarfile.open(download_name) as t:
                 t.extractall(tmpdir)
             shutil.move(os.path.join(tmpdir, 'install_simnibs', 'install_simnibs'), FILENAME) 
+
+        if sys.platform in ['linux', 'darwin']:
+            os.chmod(
+                FILENAME,
+                os.stat(FILENAME).st_mode |
+                stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     if silent:
         logger.info('SimNIBS installer updated, please start it again')
