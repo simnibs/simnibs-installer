@@ -15,12 +15,15 @@ jobs:
   - script: |
       pip install -r requirements.txt
       ./compile.sh
-      dist/install_simnibs -s --pre-release
+    displayName: 'Build'
+    
+  - script: dist/install_simnibs -s --pre-release
+      displayName: 'Test'
+      
+  - script |
       mv dist/* .
-      #zip -r install_simnibs_macOS.zip install_simnibs.app
-      # for now, because we dont have a certificate, i will ship the executable instead of the app
       zip -r install_simnibs_macOS.zip install_simnibs
-    displayName: 'Command Line Script'
+    displayName: 'Prepare distribution'
   
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Artifact: macOS-dist'
