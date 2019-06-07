@@ -11,12 +11,15 @@ import zipfile
 import tempfile
 import tarfile
 import stat
+import ctypes
+import gzip # Needed for self-update in linux
 
 import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-#ATTENTION: REMEMBER TO UPDATE THE VERSION HERE TOGETHER WITH THE RELEASE!
-__version__ = '1.1'
+#REMEMBER TO UPDATE THE VERSION HERE TOGETHER WITH THE RELEASE!
+__version__ = '1.0'
+
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
 ENV=None
@@ -26,7 +29,6 @@ if getattr( sys, 'frozen', False ):
     # WE NEED TO DISABLE THE SETDLLDIRECTORYA CALL OR IT WILL AFECT ALL CHILD PROCESSES
     # https://github.com/pyinstaller/pyinstaller/issues/3795
     if sys.platform == "win32":
-        import ctypes
         ctypes.windll.kernel32.SetDllDirectoryA(None)
 
     # Restore the original environment (Linux)
@@ -105,7 +107,7 @@ def self_update(silent):
                 z.extractall(tmpdir)
             shutil.move(os.path.join(tmpdir, 'install_simnibs'), FILENAME) 
         elif sys.platform == 'linux':
-            with tarfile.open(download_name) as t:
+            with tarfile.open(download_name, 'r:gz') as t:
                 t.extractall(tmpdir)
             shutil.move(os.path.join(tmpdir, 'install_simnibs', 'install_simnibs'), FILENAME) 
 
