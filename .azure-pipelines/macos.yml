@@ -18,11 +18,12 @@ jobs:
     displayName: 'Build'
     
   - script: dist/install_simnibs -s --pre-release
-      displayName: 'Test'
+    displayName: 'Test'
       
-  - script |
+  - script: |
       mv dist/* .
       zip -r install_simnibs_macOS.zip install_simnibs
+      
     displayName: 'Prepare distribution'
   
   - task: PublishBuildArtifacts@1
