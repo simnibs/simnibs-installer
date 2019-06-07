@@ -15,7 +15,7 @@ import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 #ATTENTION: REMEMBER TO UPDATE THE VERSION HERE TOGETHER WITH THE RELEASE!
-__version__ = '0.2'
+__version__ = '1.0'
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
 ENV=None
