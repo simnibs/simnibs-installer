@@ -10,6 +10,7 @@ import re
 import zipfile
 import tempfile
 import tarfile
+import stat
 
 import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -74,8 +75,9 @@ def self_update(silent):
     if latest:
         return
     else:
-        update = _get_input('Found a new version of the SimNIBS installer, update it?',
-                            silent)
+        update = _get_input(
+            'Found a new version of the SimNIBS installer, update it?',
+            silent)
     if not update:
         return
 
@@ -88,7 +90,11 @@ def self_update(silent):
         asset_name = 'install_simnibs_windows.exe'
     else:
         raise OSError('OS not supported')
-    shutil.move(FILENAME, FILENAME + '.old')
+
+    tmp_fn = os.path.join(tempfile.gettempdir(), os.path.basename(FILENAME))
+    if os.path.isfile(tmp_fn):
+        os.remove(tmp_fn)
+    shutil.move(FILENAME, tmp_fn)
     with tempfile.TemporaryDirectory() as tmpdir:
         download_name = os.path.join(tmpdir, asset_name)
         _download_asset(installer_url, data[0], asset_name, download_name)
@@ -102,7 +108,12 @@ def self_update(silent):
             with tarfile.open(download_name) as t:
                 t.extractall(tmpdir)
             shutil.move(os.path.join(tmpdir, 'install_simnibs', 'install_simnibs'), FILENAME) 
-        os.remove(FILENAME + '.old')
+
+        if sys.platform in ['linux', 'darwin']:
+            os.chmod(
+                FILENAME,
+                os.stat(FILENAME).st_mode |
+                stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     if silent:
         logger.info('SimNIBS installer updated, please start it again')
@@ -110,7 +121,10 @@ def self_update(silent):
         app = QtWidgets.QApplication(sys.argv)
         QtWidgets.QMessageBox.information(
             None, 'SimNIBS installer', 'SimNIBS installer updated, please start it again')
-
+    try:
+        os.remove(tmp_fn)
+    except:
+        pass
     sys.exit(0) #yes, I know...
 
 def _get_input(message, silent):
