@@ -15,12 +15,17 @@ jobs:
       rm -rf dist/ build/ install_simnibs/
       export PATH="$HOME/.local/bin":${PATH}
       ./compile.sh
-      dist/install_simnibs --pre-release -s
+    displayName: 'Build'
+
+  - script: dist/install_simnibs --pre-release -s
+    displayName: 'Test'
+
+  - script: |
       cp README.txt LICENSE.txt dist
       mv dist/ install_simnibs
       tar -cvzf install_simnibs_linux.tar.gz install_simnibs
-    displayName: 'Build and Test'
-  
+    displayName: 'Prepare Release'
+
   - task: GithubRelease@0
     displayName: Edit GitHub Release
     inputs: 
