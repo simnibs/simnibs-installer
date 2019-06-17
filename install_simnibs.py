@@ -18,7 +18,7 @@ import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 #REMEMBER TO UPDATE THE VERSION HERE TOGETHER WITH THE RELEASE!
-__version__ = '1.0'
+__version__ = '1.1'
 
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
@@ -179,10 +179,11 @@ def _get_current_version(prefix):
             f'"{_simnibs_exe(prefix)}" --version',
             shell=True,
             stderr=subprocess.PIPE,
-            stdin=subprocess.DEVNULL)
+            stdin=subprocess.DEVNULL,
+            universal_newlines=True)
     except subprocess.CalledProcessError:
         return None
-    return res.decode().rstrip('\n').rstrip('\r')
+    return res.rstrip('\n').rstrip('\r')
 
 def _download_asset(url, release_data, asset_name, fn):
     dl_header = {'Accept': 'application/octet-stream'}
@@ -345,17 +346,17 @@ def run_command(command, log_level=logging.INFO):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
-        env=ENV
+        env=ENV, universal_newlines=True,
     )
     while command_line_process.returncode is None:
         command_line_process.poll()
         for line in command_line_process.stdout:
-            line = line.decode().rstrip('\n')
+            line = line.rstrip('\n')
             if line != '':
                 logger.log(log_level, line)
 
     _, stderr = command_line_process.communicate()
-    stderr = stderr.decode()
+    stderr = stderr
     if stderr != '':
         logger.error('\n' + stderr)
     if command_line_process.returncode == 0:
