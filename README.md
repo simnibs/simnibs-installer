@@ -10,7 +10,7 @@ Installer for SimNIBS
 
 ## Compiling Locally
 
-I don't recommend compiling locally, as the builds in Azure already use old OS versions (CentOS6, Windows 2012) to maximize compatibility
+I don't recommend compiling locally, as the builds in Azure already use old OS versions to maximize compatibility
 
 SimNIBS installer is meant to be compiled to a binary using PyInstaller, and the binary shipped to the final user.
 The installer depends on Python >= 3.6 PyQt5 and Requests.
