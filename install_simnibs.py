@@ -452,7 +452,7 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     elif not os.path.samefile(FILENAME, target_name):
         shutil.copy(FILENAME, target_name)
 
-    logger.info('SimNIBS successfuly installed')
+    logger.info('SimNIBS successfully installed')
 
 
 class InstallGUI(QtWidgets.QWizard):
