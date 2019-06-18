@@ -641,7 +641,13 @@ class InstallGUI(QtWidgets.QWizard):
 
         latest_release = _get_versions(
             'https://api.github.com/repos/simnibs/example-dataset/releases')[1][0]
-        example_url = latest_release['assets'][0]['browser_download_url']
+        example_url = None
+        for asset in latest_release['assets']:
+            if asset['name'] == 'simnibs_examples.zip':
+                example_url = asset['browser_download_url']
+        if example_url is None:
+            example_url = 'https://simnibs.github.io/simnibs/build/html/dataset.html'
+
 
         layout = QtWidgets.QVBoxLayout()
         text = QtWidgets.QLabel(
