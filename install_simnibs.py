@@ -180,7 +180,9 @@ def _get_current_version(prefix):
             shell=True,
             stderr=subprocess.PIPE,
             stdin=subprocess.DEVNULL,
-            universal_newlines=True)
+            universal_newlines=True,
+            errors='replace'
+        )
     except subprocess.CalledProcessError:
         return None
     return res.rstrip('\n').rstrip('\r')
@@ -347,6 +349,7 @@ def run_command(command, log_level=logging.INFO):
         stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
         env=ENV, universal_newlines=True,
+        errors='replace'
     )
     while command_line_process.returncode is None:
         command_line_process.poll()
