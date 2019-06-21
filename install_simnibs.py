@@ -50,8 +50,9 @@ logger = logging.Logger('simnibs_installer', level=logging.INFO)
 sh = logging.StreamHandler()
 formatter = logging.Formatter('[ %(name)s ]%(levelname)s: %(message)s')
 sh.setFormatter(formatter)
+sh.setLevel(logging.INFO)
 logger.addHandler(sh)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 def log_excep(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
