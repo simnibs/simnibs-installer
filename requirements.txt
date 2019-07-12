@@ -1,5 +1,5 @@
 pyinstaller==3.*
-pyqt5==5.12.*
+pyqt5==5.12.2
 requests==2.21.*
 cryptography==2.6.*
 urllib3==1.24.*
