@@ -11,15 +11,22 @@ jobs:
     displayName: 'Use Python 3.6'
     inputs:
       versionSpec: 3.6
-  
+
   - script: |
       pip install -r requirements.txt
+    displayName: 'Install Requirements'
+
+  ## The tests do not work with the windowed version, so first I test without --windowed
+  - script: |
+      pyinstaller --onefile install_simnibs.py
+      dist\install_simnibs.exe -s --pre-release
+      rd /Q /S dist
+    displayName: 'Test'
+
+  - script: |
       call compile.cmd
       move dist\install_simnibs.exe dist\install_simnibs_windows.exe
     displayName: 'Build'
-
-  - script: dist\install_simnibs_windows.exe -s --pre-release
-    displayName: 'Test'
   
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Artifact: win-dist'
