@@ -18,7 +18,7 @@ import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 #REMEMBER TO UPDATE THE VERSION HERE TOGETHER WITH THE RELEASE!
-__version__ = '1.1'
+__version__ = '1.2'
 
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
@@ -375,6 +375,7 @@ def run_install(prefix, simnibs_version, pre_release, silent):
     ''' Main function for installation
     '''
     # Make the install directory
+    prefix = os.path.abspath(prefix)
     if " " in prefix:
         text = "Found spaces in the installation path!"
         if sys.platform == 'win32':
