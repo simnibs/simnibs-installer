@@ -16,9 +16,10 @@ jobs:
       pip install -r requirements.txt
       ./compile.sh
     displayName: 'Build'
-    
-  - script: dist/install_simnibs -s --pre-release
-    displayName: 'Test'
+
+  # I skip the test on Mac because the Azure MacOS machines have problems using the 
+  #- script: dist/install_simnibs -s --pre-release
+  #  displayName: 'Test'
       
   - script: |
       mv dist/* .
