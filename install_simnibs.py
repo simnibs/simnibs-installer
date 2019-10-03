@@ -18,7 +18,7 @@ import requests
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 #REMEMBER TO UPDATE THE VERSION HERE TOGETHER WITH THE RELEASE!
-__version__ = '1.2'
+__version__ = '1.3'
 
 GH_RELEASES_URL = 'https://api.github.com/repos/simnibs/simnibs/releases'
 
@@ -292,7 +292,8 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
         run_command(
             f'call "{activate_executable}" && '
             f'conda update -y conda && '
-            f'conda env update -f "{env_file}"'
+            f'conda env update -f "{env_file}" && '
+            f'conda clean -y -a -q'
         )
         run_command(
             f'call "{activate_executable}" simnibs_env && '
@@ -303,7 +304,8 @@ def _install_env_and_simnibs(version_url, conda_executable, prefix):
         run_command(
             f'. "{activate_executable}" && '
             f'conda update -y conda && '
-            f'conda env update -f "{env_file}"'
+            f'conda env update -f "{env_file}" && '
+            f'conda clean -y -a -q'
         )
         pip_executable = os.path.join(
             os.path.dirname(conda_executable),
