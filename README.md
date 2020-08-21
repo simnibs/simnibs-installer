@@ -1,6 +1,6 @@
-# SimNIBS Installer
+# SimNIBS Installer (DEPRECATED)
 
-Installer for SimNIBS
+Installer for SimNIBS. THIS INSTALLER IS DEPRECATED. PLEASE GO TO www.simnibs.org for information on how to install the latest SimNIBS versions.
 
 ## Build Status
 
